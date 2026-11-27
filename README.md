@@ -67,7 +67,8 @@ in the project folder, as one block:
 2. Put it in `.env` as `ANTHROPIC_API_KEY=...`, then `pm2 restart aura`.
 
 What you type is saved in the database and sent to Anthropic. So is your profile
-whenever the coach reads it, injuries included (your name is not). Replies that
+whenever the coach reads it, injuries included (your name is not), and your
+calendar, plan and race names when it reads the schedule. Replies that
 did are marked "read your profile". `COACH_DAILY_BUDGET_USD` (default 2) caps
 what the app spends in any 24 hours, using its own estimate; stopped replies
 count at the most they could have cost. `npm run dev` uses the real key too; set
