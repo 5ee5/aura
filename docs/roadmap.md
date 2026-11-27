@@ -5,7 +5,7 @@
 1. Tooling, strict TypeScript, tests, environment validation (done)
 2. Login and pm2 deployment, dark theme, layout and navigation (done)
 3. PostgreSQL, migrations, athlete tables (done)
-4. Full-page coach chat with a labelled mock stream
+4. Full-page coach chat with a labelled mock stream (done)
 5. Athlete profile view and editing
 6. Documentation
 

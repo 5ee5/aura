@@ -15,7 +15,11 @@ export const metadata: Metadata = {
   description: "Personal AI running coach",
 };
 
-export const viewport: Viewport = { themeColor: "#0c0e11" };
+export const viewport: Viewport = {
+  themeColor: "#0c0e11",
+  // The on-screen keyboard shrinks the page instead of covering the message box.
+  interactiveWidget: "resizes-content",
+};
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (

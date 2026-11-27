@@ -59,6 +59,14 @@ There are no database backups yet.
 `npm audit` reports a moderate esbuild advisory through drizzle-kit. It concerns
 esbuild's development server, which drizzle-kit does not run.
 
+## Coach replies stream as server-sent events
+
+`POST /api/coach` sends `{"text"}` pieces and then `{"done"}`. The reply comes
+from a mock in `src/server/coach/`; Claude will replace it behind the same type.
+The route checks the session and that the request's origin is this site, since
+other apps on the same domain would otherwise be able to post with the cookie.
+Conversations are not saved yet.
+
 ## Changes proposed by the model need approval
 
 Claude gets read and propose tools. Only an explicit user action applies a

@@ -14,6 +14,7 @@ test("signs in, stays signed in and signs out", async ({ page, context }) => {
   await expect(page).toHaveURL(/\/login$/);
 
   await signIn(page, E2E_PASSWORD);
+  await page.getByRole("link", { name: "Profile" }).click();
   await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
 
   const [cookie] = await context.cookies();
@@ -72,6 +73,62 @@ test("moves between sections and marks the current one", async ({ page }) => {
     await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
     await expect(nav.locator("[aria-current=page]")).toHaveText(name);
   }
+});
+
+test("streams a mock reply that can be stopped", async ({ page, context }) => {
+  await context.addCookies([
+    { name: SESSION_COOKIE, value: createSessionToken(keys), url: E2E_ENV.APP_URL },
+  ]);
+  await page.goto("/");
+  const box = page.getByRole("textbox", { name: "Message" });
+  const reply = page.locator("[data-from=coach]").last();
+  const stop = page.getByRole("button", { name: "Stop" });
+
+  await box.fill("How was my week?");
+  await box.press("Enter");
+  // Part of the reply is on screen while it is still arriving.
+  await expect(reply).toContainText("canned mock reply");
+  await expect(reply).not.toContainText("saved.");
+  await stop.click();
+  await expect(reply).toContainText("stopped");
+  await expect(stop).toBeHidden();
+  const frozen = await reply.innerText();
+  await page.waitForTimeout(500);
+  expect(await reply.innerText()).toBe(frozen);
+
+  await box.fill("Again");
+  await page.getByRole("button", { name: "Send" }).click();
+  await expect(reply).toContainText("saved.", { timeout: 15_000 });
+  await expect(stop).toBeHidden();
+
+  // On a phone only the conversation scrolls, and the box clears the tabs.
+  // The short height is roughly what is left with a keyboard open.
+  // 320 is the narrowest phone the top bar has to fit.
+  for (const [width, height] of [[412, 780], [412, 420], [320, 600]] as const) {
+    await page.setViewportSize({ width, height });
+    expect(
+      await page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight),
+    ).toBe(0);
+    const input = await box.boundingBox();
+    expect(input!.y + input!.height).toBeLessThanOrEqual(height);
+    const tabs = await page.getByRole("navigation", { name: "Main" }).boundingBox();
+    expect(tabs!.y + tabs!.height).toBeLessThan(input!.y);
+    expect(tabs!.x + tabs!.width).toBeLessThanOrEqual(width);
+  }
+});
+
+test("refuses chat requests from signed-out visitors and other sites", async ({ request }) => {
+  const data = { message: "hi" };
+  const cookie = `${SESSION_COOKIE}=${createSessionToken(keys)}`;
+  const post = (headers: Record<string, string>) => request.post("/api/coach", { data, headers });
+
+  expect((await post({ origin: E2E_ENV.APP_URL })).status()).toBe(401);
+  expect((await post({ cookie })).status()).toBe(403);
+  expect((await post({ cookie, origin: "https://other.example" })).status()).toBe(403);
+  const ok = await post({ cookie, origin: E2E_ENV.APP_URL, "accept-encoding": "gzip" });
+  expect(ok.headers()["content-type"]).toContain("text/event-stream");
+  expect(ok.headers()["content-encoding"]).toBeUndefined();
+  expect(await ok.text()).toContain('data: {"done":true}');
 });
 
 test("does not leak the internal address when proxied", async ({ request }) => {
