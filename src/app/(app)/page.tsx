@@ -9,6 +9,7 @@ import { getCoach } from "@/server/coach";
 import { listConversations, loadConversation } from "@/server/coach/conversations";
 import { getDb } from "@/server/db/client";
 import { workoutsForMessages } from "@/server/workouts/store";
+import { weeksForMessages } from "@/server/workouts/weeks";
 
 export const metadata: Metadata = { title: "Coach" };
 
@@ -26,13 +27,17 @@ async function openConversation(wanted: string | string[] | undefined) {
 
 type Saved = NonNullable<Awaited<ReturnType<typeof loadConversation>>>["messages"][number];
 
-function entry(message: Saved, workouts: Map<number, ChatEntry["workouts"]>): ChatEntry {
+function entry(
+  message: Saved,
+  workouts: Map<number, ChatEntry["workouts"]>,
+  weeks: Map<number, ChatEntry["weeks"]>,
+): ChatEntry {
   const { id, content: text, status, mock, usedProfile: readProfile } = message;
   if (message.role === "user") return { id, from: "you", text };
   const state =
     status === "failed" ? "failed" : status === "done" || status === "shortened" ? "done" : "stopped";
   const problem = message.problem ?? undefined;
-  return { id, from: "coach", text, state, mock, readProfile, problem, workouts: workouts.get(id) };
+  return { id, from: "coach", text, state, mock, readProfile, problem, workouts: workouts.get(id), weeks: weeks.get(id) };
 }
 
 const action = "flex h-10 items-center gap-2 text-sm text-muted hover:text-foreground";
@@ -41,7 +46,8 @@ export default async function CoachPage({ searchParams }: PageProps<"/">) {
   await requireSession();
   const conversation = await openConversation((await searchParams).c);
   const messages = conversation?.messages ?? [];
-  const workouts = await workoutsForMessages(getDb(), messages.map((message) => message.id));
+  const ids = messages.map((message) => message.id);
+  const [workouts, weeks] = await Promise.all([workoutsForMessages(getDb(), ids), weeksForMessages(getDb(), ids)]);
   const { mock } = getCoach();
   const load = randomUUID();
 
@@ -71,7 +77,7 @@ export default async function CoachPage({ searchParams }: PageProps<"/">) {
         key={load}
         load={load}
         conversationId={conversation?.id}
-        saved={messages.map((message) => entry(message, workouts))}
+        saved={messages.map((message) => entry(message, workouts, weeks))}
         mock={mock}
       />
     </div>

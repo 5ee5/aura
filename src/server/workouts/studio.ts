@@ -9,6 +9,7 @@ import { requireSession } from "@/server/auth/dal";
 import { getDb } from "@/server/db/client";
 import { getProfile } from "@/server/profile/data";
 import { readProposal } from "./proposal";
+import { checkSchedule, planned } from "./check-schedule";
 import { breaksRule, limitsFrom } from "./rules";
 import { decide, getWorkout, updateWorkout } from "./store";
 
@@ -48,8 +49,13 @@ export async function saveWorkout(
   if (typeof input === "string") return { error: input };
   const edited = readProposal(input);
   if (typeof edited === "string") return { error: friendly(edited) };
-  const broken = breaksRule(edited, limitsFrom(await getProfile()), localToday(), workout.scheduledOn);
+  const limits = limitsFrom(await getProfile());
+  const broken = breaksRule(edited, limits, localToday(), workout.scheduledOn);
   if (broken) return { error: broken.message };
+  if (edited.scheduledOn && (workout.status === "approved" || approve)) {
+    const clash = await checkSchedule(db, [planned({ ...edited, id }, edited.scheduledOn)], limits, [id, workout.replacesId]);
+    if (clash) return { error: clash };
+  }
 
   await updateWorkout(db, id, edited);
   let status: WorkoutStatus = workout.status;

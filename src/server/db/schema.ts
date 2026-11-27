@@ -7,6 +7,7 @@ import {
   date,
   index,
   integer,
+  jsonb,
   numeric,
   pgEnum,
   pgTable,
@@ -79,6 +80,19 @@ export const coachMessages = pgTable(
   (t) => [index("coach_messages_conversation").on(t.conversationId, t.id)],
 );
 
+/** A week the coach proposed: its workouts are planned_workouts that point here. */
+export const weekProposals = pgTable("week_proposals", {
+  id: id(),
+  weekStart: date("week_start").notNull(),
+  summary: text().notNull(),
+  /** The coach's note for each day, rest days included: [{ date, note }]. */
+  dayNotes: jsonb("day_notes").$type<{ date: string; note: string }[]>().notNull().default([]),
+  conversationId: integer("conversation_id").references(() => coachConversations.id, { onDelete: "set null" }),
+  messageId: integer("message_id").references(() => coachMessages.id, { onDelete: "set null" }),
+  mock: boolean().notNull().default(false),
+  ...timestamps,
+});
+
 /** Proposed by the coach; only the athlete approves. */
 export const plannedWorkouts = pgTable(
   "planned_workouts",
@@ -97,6 +111,10 @@ export const plannedWorkouts = pgTable(
     mock: boolean().notNull().default(false),
     /** Marked by the athlete once the day has come. Null: not marked. */
     outcome: workoutOutcome(),
+    /** Set when it was proposed as part of a week. */
+    weekProposalId: integer("week_proposal_id").references((): AnyPgColumn => weekProposals.id, {
+      onDelete: "set null",
+    }),
     /** The earlier workout this one revises. */
     replacesId: integer("replaces_id").references((): AnyPgColumn => plannedWorkouts.id, {
       onDelete: "set null",

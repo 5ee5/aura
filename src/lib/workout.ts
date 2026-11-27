@@ -117,6 +117,32 @@ export function summarizeWorkout(workout: Workout): string {
   ].join("\n");
 }
 
+export interface WeekDay {
+  date: string;
+  note: string | null;
+  workouts: Workout[];
+}
+
+/** A week the coach proposed, each workout approved or declined on its own. */
+export interface WeekPlan {
+  id: number;
+  weekStart: string;
+  summary: string;
+  mock: boolean;
+  days: WeekDay[];
+}
+
+/** The week card as text, for the coach on later turns. */
+export function summarizeWeek(week: WeekPlan): string {
+  return [
+    `[Week plan from ${week.weekStart}: ${week.summary}]`,
+    ...week.days.flatMap((day) => [
+      `${day.date}${day.note ? `: ${day.note}` : ""}${day.workouts.length ? "" : " (no workout)"}`,
+      ...day.workouts.map((workout) => summarizeWorkout(workout).replace(/^/gm, "  ")),
+    ]),
+  ].join("\n");
+}
+
 /** Rough minutes, assuming 6:00/km where a distance has no pace. Used for limits only. */
 export function estimateMinutes(steps: Step[]): number {
   return steps.reduce((total, step) => {

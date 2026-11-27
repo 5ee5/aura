@@ -3,8 +3,9 @@ import { asc, desc, eq } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { MAX_HISTORY, MAX_MESSAGES } from "../../lib/chat-limits";
 import { coachConversations, coachMessages } from "../db/schema";
-import { summarizeWorkout } from "../../lib/workout";
+import { summarizeWeek, summarizeWorkout } from "../../lib/workout";
 import { deleteUnapproved, workoutsForMessages } from "../workouts/store";
+import { weeksForMessages } from "../workouts/weeks";
 import type { ChatMessage } from "./types";
 
 type Row = typeof coachMessages.$inferSelect;
@@ -79,8 +80,12 @@ export function startExchange(
       if (touched.length === 0) return undefined;
     }
     const earlier = await messagesOf(tx, id);
-    const cards = await workoutsForMessages(tx, earlier.filter((m) => m.role === "assistant").map((m) => m.id));
-    const turns = earlier.map((m) => ({ ...m, workouts: cards.get(m.id)?.map(summarizeWorkout) }));
+    const replies = earlier.filter((m) => m.role === "assistant").map((m) => m.id);
+    const [cards, weeks] = await Promise.all([workoutsForMessages(tx, replies), weeksForMessages(tx, replies)]);
+    const turns = earlier.map((m) => ({
+      ...m,
+      workouts: [...(cards.get(m.id)?.map(summarizeWorkout) ?? []), ...(weeks.get(m.id)?.map(summarizeWeek) ?? [])],
+    }));
     const history = buildHistory(turns, text);
     await tx.insert(coachMessages).values({ conversationId: id, role: "user", content: text, mock });
     const [reply] = await tx

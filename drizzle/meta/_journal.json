@@ -64,6 +64,13 @@
       "when": 1795819328518,
       "tag": "0008_training_plans",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1795819921611,
+      "tag": "0009_week_proposals",
+      "breakpoints": true
     }
   ]
 }

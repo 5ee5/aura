@@ -1,8 +1,8 @@
 // Takes the database as an argument so tests can use their own.
-import { and, asc, eq, inArray, ne, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import type { StatusChange, Step, Workout, WorkoutStatus } from "../../lib/workout";
-import { plannedWorkouts, workoutSteps } from "../db/schema";
+import { plannedWorkouts, weekProposals, workoutSteps } from "../db/schema";
 import type { Proposal } from "./proposal";
 
 type Db = NodePgDatabase;
@@ -15,6 +15,8 @@ export interface Link {
   conversationId: number;
   messageId: number;
   mock: boolean;
+  /** Set when the workout is part of a proposed week. */
+  weekProposalId?: number;
 }
 
 async function insertSteps(db: Pick<Db, "insert">, workoutId: number, steps: Step[], parentId: number | null) {
@@ -108,7 +110,7 @@ function nest(rows: StepRow[], parentId: number | null): Step[] {
     }));
 }
 
-async function withSteps(db: Reader, rows: WorkoutRow[]): Promise<(Workout & { messageId: number | null })[]> {
+export async function withSteps(db: Reader, rows: WorkoutRow[]): Promise<(Workout & { messageId: number | null; weekProposalId: number | null })[]> {
   if (!rows.length) return [];
   const steps = await db
     .select()
@@ -126,6 +128,7 @@ async function withSteps(db: Reader, rows: WorkoutRow[]): Promise<(Workout & { m
     replacesId: row.replacesId,
     outcome: row.outcome,
     messageId: row.messageId,
+    weekProposalId: row.weekProposalId,
     steps: nest(steps.filter((step) => step.workoutId === row.id), null),
   }));
 }
@@ -141,7 +144,8 @@ export async function workoutsForMessages(db: Reader, messageIds: number[]) {
   const rows = await db
     .select()
     .from(plannedWorkouts)
-    .where(inArray(plannedWorkouts.messageId, messageIds))
+    // Workouts in a proposed week are shown on the week's card instead.
+    .where(and(inArray(plannedWorkouts.messageId, messageIds), isNull(plannedWorkouts.weekProposalId)))
     .orderBy(asc(plannedWorkouts.id));
   const byMessage = new Map<number, Workout[]>();
   for (const workout of await withSteps(db, rows)) {
@@ -240,5 +244,6 @@ export async function deleteUnapproved(db: Pick<Db, "delete">, conversationId: n
   await db
     .delete(plannedWorkouts)
     .where(and(eq(plannedWorkouts.conversationId, conversationId), ne(plannedWorkouts.status, "approved")));
+  await db.delete(weekProposals).where(eq(weekProposals.conversationId, conversationId));
 }
 

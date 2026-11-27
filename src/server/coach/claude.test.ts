@@ -42,6 +42,8 @@ const profile = async () => "PROFILE";
 const toolsWith = (readProfile: () => Promise<string> = profile) => ({
   readProfile,
   proposeWorkout: vi.fn<(input: unknown) => Promise<{ content: string }>>(async () => ({ content: "SHOWN" })),
+  getSchedule: vi.fn<(input: unknown) => Promise<{ content: string }>>(async () => ({ content: "SCHEDULE" })),
+  proposeWeek: vi.fn<(input: unknown) => Promise<{ content: string }>>(async () => ({ content: "WEEK" })),
 });
 
 function fakeLedger() {
@@ -166,7 +168,7 @@ describe("claudeReply with the profile tool", () => {
     const { client, stream } = scripted([{ stop: "tool_use", content: [call] }]);
     const reply = claudeReply(client, fakeLedger().ledger)(ask, signal(), toolsWith());
     await expect(collect(reply)).rejects.toThrow("without answering");
-    expect(stream).toHaveBeenCalledTimes(4);
+    expect(stream).toHaveBeenCalledTimes(5);
   });
 
   it("tells Claude when the profile cannot be read", async () => {
@@ -209,7 +211,7 @@ describe("claudeReply proposing a workout", () => {
       content: [{ type: "tool_result", tool_use_id: "toolu_2", content: "SHOWN" }],
     });
     const sent = stream.mock.calls[0]?.[0] as unknown as { tools: { name: string }[] };
-    expect(sent.tools.map((tool) => tool.name)).toEqual(["get_profile", "propose_workout"]);
+    expect(sent.tools.map((tool) => tool.name)).toEqual(["get_profile", "propose_workout", "get_schedule", "propose_week"]);
   });
 });
 

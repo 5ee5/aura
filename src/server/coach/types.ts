@@ -12,6 +12,8 @@ export interface ToolOutcome {
 export interface CoachTools {
   readProfile(): Promise<string>;
   proposeWorkout(input: unknown): Promise<ToolOutcome>;
+  getSchedule(input: unknown): Promise<ToolOutcome>;
+  proposeWeek(input: unknown): Promise<ToolOutcome>;
 }
 
 /** What a coach is: the reply to a conversation, in pieces, until done or aborted. */

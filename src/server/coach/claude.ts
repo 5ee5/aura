@@ -1,6 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { localToday } from "../../lib/dates";
+import { GET_SCHEDULE_TOOL } from "../calendar/schedule-tool";
 import { PROPOSE_WORKOUT_TOOL } from "../workouts/proposal";
+import { PROPOSE_WEEK_TOOL } from "../workouts/weeks";
 import { SYSTEM_PROMPT } from "./prompt";
 import { CoachError, type CoachReply, type CoachTools, type ToolOutcome } from "./types";
 import { costUsd, type Ledger, type Tokens } from "./usage";
@@ -9,7 +11,7 @@ export const MODEL = "claude-sonnet-5-5";
 const MAX_TOKENS = 8000;
 const NOTHING: Tokens = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
 /** API requests in one reply: each round of tool calls costs another. */
-const MAX_REQUESTS = 4;
+const MAX_REQUESTS = 5;
 
 const TOOLS: Anthropic.Beta.BetaTool[] = [
   {
@@ -22,6 +24,8 @@ const TOOLS: Anthropic.Beta.BetaTool[] = [
     input_schema: { type: "object", properties: {}, required: [], additionalProperties: false },
   },
   PROPOSE_WORKOUT_TOOL as unknown as Anthropic.Beta.BetaTool,
+  GET_SCHEDULE_TOOL as unknown as Anthropic.Beta.BetaTool,
+  PROPOSE_WEEK_TOOL as unknown as Anthropic.Beta.BetaTool,
 ];
 
 /**
@@ -147,6 +151,8 @@ export function claudeReply(client: Anthropic, ledger: Ledger): CoachReply {
     try {
       if (tools && block.name === "get_profile") return { content: await tools.readProfile() };
       if (tools && block.name === "propose_workout") return await tools.proposeWorkout(block.input);
+      if (tools && block.name === "get_schedule") return await tools.getSchedule(block.input);
+      if (tools && block.name === "propose_week") return await tools.proposeWeek(block.input);
       return { content: "That tool is not available.", is_error: true };
     } catch (error) {
       console.error(`Coach tool ${block.name} failed:`, (error as Error).name);

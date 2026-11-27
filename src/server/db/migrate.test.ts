@@ -33,6 +33,7 @@ describe("migrations", () => {
       "race_results",
       "training_blocks",
       "training_plans",
+      "week_proposals",
       "workout_steps",
     ]);
   });

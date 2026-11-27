@@ -39,6 +39,14 @@ const topStep = {
   additionalProperties: false,
 };
 
+/** What describes one workout, without its date: shared with propose_week. */
+export const WORKOUT_PROPERTIES = {
+  title: { type: "string", description: "Short, such as '6 × 800 m at 5K pace'." },
+  type: { type: "string", enum: WORKOUT_TYPE_KEYS },
+  description: { type: "string", description: "What the session is for, in a sentence or two." },
+  steps: { type: "array", items: topStep },
+};
+
 export const PROPOSE_WORKOUT_TOOL = {
   name: "propose_workout",
   description:

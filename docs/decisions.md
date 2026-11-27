@@ -128,6 +128,20 @@ with an optional weekly-minutes target. A workout belongs to whichever block its
 date falls in; nothing links them directly. Blocks have a status so the coach
 can propose one later, but only approved blocks appear.
 
+## Weeks are checked as a whole
+
+`propose_week` shows a Monday-to-Sunday week as one card whose workouts are
+ordinary proposals, approved one by one or all at once. `get_schedule` gives the
+coach the calendar, blocks and weekly totals, read only.
+
+Rules in `src/server/workouts/schedule.ts` apply whenever a dated workout is
+proposed, approved, edited or moved, against approved workouts that were not
+skipped: no hard sessions on consecutive days, at most three a week, each day
+within its available minutes, and a week's planned time at most 10% (or 30
+minutes) above the week before. The growth rule needs a baseline of 90 minutes
+in the previous week, so it does not apply to the first weeks of planning. These
+compare planned time: until Garmin, the app does not know what was really run.
+
 ## Claude Sonnet 5.5 through the Messages API
 
 Chosen over Opus 5.5 for cost. Effort is `low`, replies are capped at 8000

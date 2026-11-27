@@ -6,6 +6,7 @@ import { isDate, localToday } from "@/lib/dates";
 import { requireSession } from "@/server/auth/dal";
 import { getDb } from "@/server/db/client";
 import { getProfile } from "@/server/profile/data";
+import { checkSchedule, planned } from "@/server/workouts/check-schedule";
 import { breaksRule, limitsFrom } from "@/server/workouts/rules";
 import { getWorkout, reschedule, setOutcome } from "@/server/workouts/store";
 
@@ -26,8 +27,11 @@ export async function moveWorkout(id: number, date: string | null): Promise<{ er
   if (date !== null && !isDate(date)) return { error: "Pick a date." };
   if (date === workout.scheduledOn) return {};
   if (date !== null) {
-    const broken = breaksRule({ ...workout, scheduledOn: date }, limitsFrom(await getProfile()), localToday());
+    const limits = limitsFrom(await getProfile());
+    const broken = breaksRule({ ...workout, scheduledOn: date }, limits, localToday());
     if (broken) return { error: broken.message };
+    const clash = await checkSchedule(getDb(), [planned(workout, date)], limits, [workout.id]);
+    if (clash) return { error: clash };
   }
   await reschedule(getDb(), id, date);
   revalidatePath("/", "layout");

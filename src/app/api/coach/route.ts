@@ -8,7 +8,9 @@ import { describeProfile } from "@/server/coach/profile-summary";
 import { CoachError, type CoachTools } from "@/server/coach/types";
 import { getDb } from "@/server/db/client";
 import { getProfile } from "@/server/profile/data";
+import { describeSchedule } from "@/server/calendar/schedule-summary";
 import { proposeWorkout } from "@/server/workouts/propose";
+import { proposeWeek } from "@/server/workouts/propose-week";
 import { limitsFrom } from "@/server/workouts/rules";
 
 const bodySchema = z.object({
@@ -26,7 +28,7 @@ function fromThisSite(request: Request): boolean {
 
 /**
  * Takes one new message; earlier turns come from the database. Streams
- * server-sent events: {"conversation"}, then {"text"}, {"readProfile"} and {"workout"},
+ * server-sent events: {"conversation"}, then {"text"}, {"readProfile"}, {"workout"} and {"week"},
  * then {"done"} or {"error"}. A stream that ends with neither was cut off.
  */
 export async function POST(request: Request): Promise<Response> {
@@ -77,6 +79,14 @@ export async function POST(request: Request): Promise<Response> {
       const limits = async () => limitsFrom(await getProfile());
       const { outcome, workout, changes } = await proposeWorkout(db, input, limits, link, localToday());
       if (workout) send({ workout, changes });
+      return outcome;
+    },
+    getSchedule: describeSchedule,
+    async proposeWeek(input) {
+      const link = { conversationId: exchange.conversationId, messageId: exchange.replyId, mock: coach.mock };
+      const limits = async () => limitsFrom(await getProfile());
+      const { outcome, week } = await proposeWeek(db, input, limits, link, localToday());
+      if (week) send({ week });
       return outcome;
     },
   };
