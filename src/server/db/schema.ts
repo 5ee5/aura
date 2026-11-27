@@ -24,7 +24,13 @@ export const dataSource = pgEnum("data_source", ["reported", "measured", "calcul
 export const goalStatus = pgEnum("goal_status", ["active", "achieved", "abandoned"]);
 export const surface = pgEnum("surface", ["road", "trail", "track"]);
 export const workoutType = pgEnum("workout_type", WORKOUT_TYPE_KEYS);
-export const workoutStatus = pgEnum("workout_status", ["proposed", "approved", "declined", "replaced"]);
+export const workoutStatus = pgEnum("workout_status", [
+  "proposed",
+  "approved",
+  "declined",
+  "replaced",
+  "cancelled",
+]);
 export const stepKind = pgEnum("step_kind", STEP_KINDS);
 export const workoutOutcome = pgEnum("workout_outcome", ["done", "skipped"]);
 export const blockFocus = pgEnum("block_focus", ["base", "build", "peak", "taper", "recovery", "race"]);
@@ -326,3 +332,17 @@ export const trainingBlocks = pgTable(
     check("training_blocks_minutes_range", sql`${t.weeklyMinutes} between 0 and 3000`),
   ],
 );
+
+/** Changes to approved workouts, proposed by the coach as one set. */
+export const changeProposals = pgTable("change_proposals", {
+  id: id(),
+  summary: text().notNull(),
+  changes: jsonb()
+    .$type<{ workoutId: number; title: string; action: "move" | "cancel"; from: string | null; to: string | null }[]>()
+    .notNull(),
+  status: workoutStatus().notNull().default("proposed"),
+  conversationId: integer("conversation_id").references(() => coachConversations.id, { onDelete: "set null" }),
+  messageId: integer("message_id").references(() => coachMessages.id, { onDelete: "set null" }),
+  mock: boolean().notNull().default(false),
+  ...timestamps,
+});

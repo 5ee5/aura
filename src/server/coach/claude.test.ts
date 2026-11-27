@@ -44,6 +44,8 @@ const toolsWith = (readProfile: () => Promise<string> = profile) => ({
   proposeWorkout: vi.fn<(input: unknown) => Promise<{ content: string }>>(async () => ({ content: "SHOWN" })),
   getSchedule: vi.fn<(input: unknown) => Promise<{ content: string }>>(async () => ({ content: "SCHEDULE" })),
   proposeWeek: vi.fn<(input: unknown) => Promise<{ content: string }>>(async () => ({ content: "WEEK" })),
+  proposeBlock: vi.fn<(input: unknown) => Promise<{ content: string }>>(async () => ({ content: "BLOCK" })),
+  proposeChanges: vi.fn<(input: unknown) => Promise<{ content: string }>>(async () => ({ content: "CHANGES" })),
 });
 
 function fakeLedger() {
@@ -211,7 +213,7 @@ describe("claudeReply proposing a workout", () => {
       content: [{ type: "tool_result", tool_use_id: "toolu_2", content: "SHOWN" }],
     });
     const sent = stream.mock.calls[0]?.[0] as unknown as { tools: { name: string }[] };
-    expect(sent.tools.map((tool) => tool.name)).toEqual(["get_profile", "propose_workout", "get_schedule", "propose_week"]);
+    expect(sent.tools.map((tool) => tool.name)).toEqual(["get_profile", "propose_workout", "get_schedule", "propose_week", "propose_block", "propose_changes"]);
   });
 });
 

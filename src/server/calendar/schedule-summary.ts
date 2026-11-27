@@ -5,6 +5,8 @@ import { WORKOUT_TYPES } from "@/lib/workout";
 import { getProfile } from "@/server/profile/data";
 export { GET_SCHEDULE_TOOL } from "./schedule-tool";
 import type { ToolOutcome } from "@/server/coach/types";
+import { getDb } from "@/server/db/client";
+import { listPlans } from "@/server/plans/store";
 import { calendarDays } from "./data";
 
 const range = z
@@ -20,7 +22,7 @@ export async function describeSchedule(input: unknown): Promise<ToolOutcome> {
   // Whole weeks, so the totals mean something.
   const from = startOfWeek(parsed.data.from);
   const to = addDays(startOfWeek(parsed.data.to), 6);
-  const [{ days, blocks }, profile] = await Promise.all([calendarDays(from, to), getProfile()]);
+  const [{ days, blocks }, profile, plans] = await Promise.all([calendarDays(from, to), getProfile(), listPlans(getDb())]);
   const available = new Map(profile?.week.map((d) => [d.weekday, d.maxMinutes]) ?? []);
 
   const weeks = [];
@@ -52,6 +54,13 @@ export async function describeSchedule(input: unknown): Promise<ToolOutcome> {
     content: JSON.stringify({
       today: localToday(),
       note: "Only approved workouts are listed. Minutes are estimates. Outcomes were marked by the athlete.",
+      plans: plans.map((p) => ({
+        id: p.id,
+        name: p.name,
+        from: p.startOn,
+        to: p.endOn,
+        blocks: p.blocks.map((b) => ({ name: b.name, focus: b.focus, from: b.startOn, to: b.endOn })),
+      })),
       blocks: blocks.map((b) => ({
         name: b.name,
         plan: b.planName,

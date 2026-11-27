@@ -2,7 +2,7 @@
 import { and, asc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import type { StatusChange, Step, Workout, WorkoutStatus } from "../../lib/workout";
-import { plannedWorkouts, weekProposals, workoutSteps } from "../db/schema";
+import { changeProposals, plannedWorkouts, trainingBlocks, weekProposals, workoutSteps } from "../db/schema";
 import type { Proposal } from "./proposal";
 
 type Db = NodePgDatabase;
@@ -133,7 +133,7 @@ export async function withSteps(db: Reader, rows: WorkoutRow[]): Promise<(Workou
   }));
 }
 
-export async function getWorkout(db: Db, id: number) {
+export async function getWorkout(db: Reader, id: number) {
   const rows = await db.select().from(plannedWorkouts).where(eq(plannedWorkouts.id, id));
   return (await withSteps(db, rows))[0];
 }
@@ -245,5 +245,9 @@ export async function deleteUnapproved(db: Pick<Db, "delete">, conversationId: n
     .delete(plannedWorkouts)
     .where(and(eq(plannedWorkouts.conversationId, conversationId), ne(plannedWorkouts.status, "approved")));
   await db.delete(weekProposals).where(eq(weekProposals.conversationId, conversationId));
+  await db.delete(changeProposals).where(eq(changeProposals.conversationId, conversationId));
+  await db
+    .delete(trainingBlocks)
+    .where(and(eq(trainingBlocks.conversationId, conversationId), ne(trainingBlocks.status, "approved")));
 }
 

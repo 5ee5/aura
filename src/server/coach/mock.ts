@@ -1,6 +1,6 @@
 import { setTimeout as sleep } from "node:timers/promises";
 import { addDays, localToday, startOfWeek } from "../../lib/dates";
-import type { CoachReply } from "./types";
+import type { CoachReply, CoachTools } from "./types";
 
 export const MOCK_REPLY =
   "This is a canned mock reply. No coach is connected yet, and nothing here is " +
@@ -52,6 +52,44 @@ function mockWeek() {
   };
 }
 
+/** A four-week base block at the start of the plan that ends last. */
+async function mockBlock(tools: CoachTools): Promise<string> {
+  const today = localToday();
+  const { plans } = JSON.parse((await tools.getSchedule({ from: today, to: today })).content) as {
+    plans: { id: number; from: string }[];
+  };
+  const plan = plans[0];
+  if (!plan) return "The mock coach needs a plan first: create one on the Plans page.";
+  const { content, is_error: failed } = await tools.proposeBlock({
+    plan_id: plan.id,
+    name: "Mock base block",
+    focus: "base",
+    start: plan.from,
+    end: addDays(plan.from, 27),
+    weekly_minutes: 180,
+    notes: "A canned example from the mock coach.",
+  });
+  return failed ? `The mock block was refused: ${content}` : "This is a canned mock block. Approve it to add it to the plan.";
+}
+
+/** Moves the next upcoming, unmarked workout one day later. */
+async function mockMove(tools: CoachTools): Promise<string> {
+  const today = localToday();
+  const { weeks } = JSON.parse((await tools.getSchedule({ from: today, to: addDays(today, 56) })).content) as {
+    weeks: { days: { date: string; workouts: { id: number; outcome?: string }[] }[] }[];
+  };
+  const next = weeks
+    .flatMap((w) => w.days)
+    .filter((d) => d.date >= today)
+    .flatMap((d) => d.workouts.filter((w) => !w.outcome).map((w) => ({ ...w, date: d.date })))[0];
+  if (!next) return "The mock coach found nothing upcoming to move.";
+  const { content, is_error: failed } = await tools.proposeChanges({
+    summary: "A canned example from the mock coach.",
+    changes: [{ workout_id: next.id, action: "move", date: addDays(next.date, 1) }],
+  });
+  return failed ? `The mock change was refused: ${content}` : "These are canned mock changes. Approve them to apply.";
+}
+
 /**
  * Stands in for Claude when there is no API key, and in tests. Ignores the
  * messages, except that asking for a "workout" proposes a canned one.
@@ -63,6 +101,10 @@ export const mockReply: CoachReply = async function* (messages, signal, tools) {
   if (tools && /\bplan\b.*\bweek\b|\bweek\b.*\bplan\b/i.test(asked)) {
     const { content, is_error: failed } = await tools.proposeWeek(mockWeek());
     reply = failed ? `The mock week was refused: ${content}` : MOCK_WEEK_REPLY;
+  } else if (tools && /\bblock\b/i.test(asked)) {
+    reply = await mockBlock(tools);
+  } else if (tools && /\bmove\b/i.test(asked)) {
+    reply = await mockMove(tools);
   } else if (tools && /workout/i.test(asked)) {
     await tools.proposeWorkout(MOCK_WORKOUT);
     reply = MOCK_WORKOUT_REPLY;

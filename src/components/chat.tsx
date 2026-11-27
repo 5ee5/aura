@@ -4,7 +4,9 @@ import { ArrowUp, Square } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { MAX_MESSAGE } from "@/lib/chat-limits";
+import type { BlockProposal, ChangeSet } from "@/lib/plans";
 import type { StatusChange, WeekPlan, Workout } from "@/lib/workout";
+import { BlockCard, ChangesCard } from "./plan-cards";
 import { WeekCard } from "./week-card";
 import { WorkoutCard } from "./workout-card";
 
@@ -18,6 +20,8 @@ export interface ChatEntry {
   readProfile?: boolean;
   workouts?: Workout[];
   weeks?: WeekPlan[];
+  blocks?: BlockProposal[];
+  changeSets?: ChangeSet[];
 }
 
 /** A shortened reply: shown with its reason, and still a reply. */
@@ -29,6 +33,8 @@ interface Handlers {
   onReadProfile: () => void;
   onWorkout: (workout: Workout, changes: StatusChange[]) => void;
   onWeek: (week: WeekPlan) => void;
+  onBlock: (block: BlockProposal) => void;
+  onChangeSet: (set: ChangeSet) => void;
 }
 
 /** Sends one message and reads the reply stream. */
@@ -58,6 +64,8 @@ async function streamReply(body: object, signal: AbortSignal, handlers: Handlers
         workout?: Workout;
         changes?: StatusChange[];
         week?: WeekPlan;
+        block?: BlockProposal;
+        changeSet?: ChangeSet;
         done?: true;
         error?: string;
         keepReply?: boolean;
@@ -69,6 +77,8 @@ async function streamReply(body: object, signal: AbortSignal, handlers: Handlers
       if (data.readProfile) handlers.onReadProfile();
       if (data.workout) handlers.onWorkout(data.workout, data.changes ?? []);
       if (data.week) handlers.onWeek(data.week);
+      if (data.block) handlers.onBlock(data.block);
+      if (data.changeSet) handlers.onChangeSet(data.changeSet);
     }
   }
   throw new Error("The reply was cut off. Send your message again.");
@@ -167,6 +177,8 @@ export function Chat({ load, conversationId, saved, mock }: Props) {
           update((m) => ({ workouts: [...(m.workouts ?? []), workout] }));
         },
         onWeek: (week) => update((m) => ({ weeks: [...(m.weeks ?? []), week] })),
+        onBlock: (block) => update((m) => ({ blocks: [...(m.blocks ?? []), block] })),
+        onChangeSet: (set) => update((m) => ({ changeSets: [...(m.changeSets ?? []), set] })),
       });
       update(() => ({ state: "done" }));
       setAnnouncement(`${replyLabel(mock)}: ${reply}`);
@@ -220,13 +232,15 @@ export function Chat({ load, conversationId, saved, mock }: Props) {
                   {message.state === "stopped" && ", stopped"}
                 </p>
                 <p className="mt-1 whitespace-pre-wrap">
-                  {message.text || (message.state === "streaming" && !message.workouts?.length && !message.weeks?.length && "Thinking…")}
+                  {message.text || (message.state === "streaming" && !message.workouts?.length && !message.weeks?.length && !message.blocks?.length && !message.changeSets?.length && "Thinking…")}
                 </p>
                 {message.workouts?.map((workout) => (
                   // Keyed by status too, so a change made elsewhere redraws the card.
                   <WorkoutCard key={`${workout.id}:${workout.status}`} workout={workout} onChanges={applyChanges} />
                 ))}
                 {message.weeks?.map((week) => <WeekCard key={week.id} week={week} onChanges={applyChanges} />)}
+                {message.blocks?.map((block) => <BlockCard key={block.id} block={block} />)}
+                {message.changeSets?.map((set) => <ChangesCard key={set.id} set={set} />)}
                 {message.problem && <p className="mt-1 text-danger">{message.problem}</p>}
               </li>
             ),

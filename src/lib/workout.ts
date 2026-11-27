@@ -38,7 +38,7 @@ export interface Step {
   steps: Step[];
 }
 
-export type WorkoutStatus = "proposed" | "approved" | "declined" | "replaced";
+export type WorkoutStatus = "proposed" | "approved" | "declined" | "replaced" | "cancelled";
 
 /** A card whose status changed as a result of something else. */
 export interface StatusChange {
@@ -109,6 +109,7 @@ export function summarizeWorkout(workout: Workout): string {
     approved: "approved by the athlete",
     declined: "declined by the athlete",
     replaced: "replaced by a newer version",
+    cancelled: "cancelled by the athlete after approving it",
   }[workout.status];
   const outcome = workout.outcome ? ` Marked ${workout.outcome} by the athlete.` : "";
   return [

@@ -142,6 +142,15 @@ minutes) above the week before. The growth rule needs a baseline of 90 minutes
 in the previous week, so it does not apply to the first weeks of planning. These
 compare planned time: until Garmin, the app does not know what was really run.
 
+## The coach proposes blocks and changes, never applies them
+
+`propose_block` adds a block with status "proposed" to an existing plan; it
+counts only once approved, and is checked again for fit at that moment.
+`propose_changes` moves or cancels approved workouts as one set, recorded with
+each workout's date at the time. Approving re-checks every change against the
+rules and refuses the set if any workout has moved since. A cancelled workout
+keeps its row with status "cancelled". The coach cannot create plans.
+
 ## Claude Sonnet 5.5 through the Messages API
 
 Chosen over Opus 5.5 for cost. Effort is `low`, replies are capped at 8000

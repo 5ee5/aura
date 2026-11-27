@@ -30,6 +30,7 @@ const STATUS_TEXT = {
   approved: "Approved",
   declined: "Declined",
   replaced: "Replaced by a newer version",
+  cancelled: "Cancelled",
 } as const;
 
 /** A workout, with Approve and Decline while it is still a proposal. */

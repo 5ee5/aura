@@ -9,6 +9,8 @@ import { CoachError, type CoachTools } from "@/server/coach/types";
 import { getDb } from "@/server/db/client";
 import { getProfile } from "@/server/profile/data";
 import { describeSchedule } from "@/server/calendar/schedule-summary";
+import { proposeBlock } from "@/server/changes/blocks";
+import { proposeChanges } from "@/server/changes/changes";
 import { proposeWorkout } from "@/server/workouts/propose";
 import { proposeWeek } from "@/server/workouts/propose-week";
 import { limitsFrom } from "@/server/workouts/rules";
@@ -28,7 +30,7 @@ function fromThisSite(request: Request): boolean {
 
 /**
  * Takes one new message; earlier turns come from the database. Streams
- * server-sent events: {"conversation"}, then {"text"}, {"readProfile"}, {"workout"} and {"week"},
+ * server-sent events: {"conversation"}, then {"text"}, {"readProfile"}, {"workout"}, {"week"}, {"block"} and {"changeSet"},
  * then {"done"} or {"error"}. A stream that ends with neither was cut off.
  */
 export async function POST(request: Request): Promise<Response> {
@@ -87,6 +89,19 @@ export async function POST(request: Request): Promise<Response> {
       const limits = async () => limitsFrom(await getProfile());
       const { outcome, week } = await proposeWeek(db, input, limits, link, localToday());
       if (week) send({ week });
+      return outcome;
+    },
+    async proposeBlock(input) {
+      const link = { conversationId: exchange.conversationId, messageId: exchange.replyId, mock: coach.mock };
+      const { outcome, block } = await proposeBlock(db, input, link);
+      if (block) send({ block });
+      return outcome;
+    },
+    async proposeChanges(input) {
+      const link = { conversationId: exchange.conversationId, messageId: exchange.replyId, mock: coach.mock };
+      const limits = async () => limitsFrom(await getProfile());
+      const { outcome, changeSet } = await proposeChanges(db, input, limits, link, localToday());
+      if (changeSet) send({ changeSet });
       return outcome;
     },
   };

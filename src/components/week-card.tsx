@@ -8,7 +8,7 @@ import { decideWeek, decideWorkout } from "@/server/workouts/actions";
 
 const button = "h-9 cursor-pointer rounded-lg border border-line-strong px-3 text-sm disabled:opacity-60";
 const primary = "h-9 cursor-pointer rounded-lg bg-accent px-3 text-sm font-medium text-background disabled:opacity-60";
-const STATUS = { approved: "Approved", declined: "Declined", replaced: "Replaced", proposed: "" } as const;
+const STATUS = { approved: "Approved", declined: "Declined", replaced: "Replaced", cancelled: "Cancelled", proposed: "" } as const;
 
 interface Props {
   week: WeekPlan;
@@ -21,7 +21,7 @@ export function WeekCard({ week, onChanges }: Props) {
   const [pending, startTransition] = useTransition();
   const workouts = week.days.flatMap((day) => day.workouts);
   const waiting = workouts.filter((w) => w.status === "proposed");
-  const minutes = Math.round(workouts.filter((w) => w.status !== "declined").reduce((n, w) => n + estimateMinutes(w.steps), 0));
+  const minutes = Math.round(workouts.filter((w) => w.status === "approved" || w.status === "proposed").reduce((n, w) => n + estimateMinutes(w.steps), 0));
 
   const run = (action: () => Promise<{ changes?: StatusChange[]; error?: string }>) =>
     startTransition(async () => {

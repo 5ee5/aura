@@ -10,6 +10,8 @@ import { listConversations, loadConversation } from "@/server/coach/conversation
 import { getDb } from "@/server/db/client";
 import { workoutsForMessages } from "@/server/workouts/store";
 import { weeksForMessages } from "@/server/workouts/weeks";
+import { blocksForMessages } from "@/server/changes/blocks";
+import { changesForMessages } from "@/server/changes/changes";
 
 export const metadata: Metadata = { title: "Coach" };
 
@@ -31,13 +33,27 @@ function entry(
   message: Saved,
   workouts: Map<number, ChatEntry["workouts"]>,
   weeks: Map<number, ChatEntry["weeks"]>,
+  blocks: Map<number, ChatEntry["blocks"]>,
+  changeSets: Map<number, ChatEntry["changeSets"]>,
 ): ChatEntry {
   const { id, content: text, status, mock, usedProfile: readProfile } = message;
   if (message.role === "user") return { id, from: "you", text };
   const state =
     status === "failed" ? "failed" : status === "done" || status === "shortened" ? "done" : "stopped";
   const problem = message.problem ?? undefined;
-  return { id, from: "coach", text, state, mock, readProfile, problem, workouts: workouts.get(id), weeks: weeks.get(id) };
+  return {
+    id,
+    from: "coach",
+    text,
+    state,
+    mock,
+    readProfile,
+    problem,
+    workouts: workouts.get(id),
+    weeks: weeks.get(id),
+    blocks: blocks.get(id),
+    changeSets: changeSets.get(id),
+  };
 }
 
 const action = "flex h-10 items-center gap-2 text-sm text-muted hover:text-foreground";
@@ -47,7 +63,13 @@ export default async function CoachPage({ searchParams }: PageProps<"/">) {
   const conversation = await openConversation((await searchParams).c);
   const messages = conversation?.messages ?? [];
   const ids = messages.map((message) => message.id);
-  const [workouts, weeks] = await Promise.all([workoutsForMessages(getDb(), ids), weeksForMessages(getDb(), ids)]);
+  const db = getDb();
+  const [workouts, weeks, blocks, changeSets] = await Promise.all([
+    workoutsForMessages(db, ids),
+    weeksForMessages(db, ids),
+    blocksForMessages(db, ids),
+    changesForMessages(db, ids),
+  ]);
   const { mock } = getCoach();
   const load = randomUUID();
 
@@ -77,7 +99,7 @@ export default async function CoachPage({ searchParams }: PageProps<"/">) {
         key={load}
         load={load}
         conversationId={conversation?.id}
-        saved={messages.map((message) => entry(message, workouts, weeks))}
+        saved={messages.map((message) => entry(message, workouts, weeks, blocks, changeSets))}
         mock={mock}
       />
     </div>
