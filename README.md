@@ -4,13 +4,23 @@ A single-user AI running coach.
 
 ## Requirements
 
-Node 24 or later and pm2. Docker, for the browser tests.
+Node 24 or later, pm2 and PostgreSQL 18. Docker, for the browser tests.
 
 ## Setup
 
     npm ci
     cp .env.example .env        # then set APP_URL
     npm run set-password        # prompts; stores a hash and a session secret
+
+### Database
+
+Create a user `aura` that is not a superuser, and two databases it owns: `aura`
+and `aura_test`. Put `DATABASE_URL` in `.env`, then run `npm run db:migrate`.
+Require passwords for TCP connections in `pg_hba.conf` (`scram-sha-256`, not
+`trust`). `npm run check` empties `aura_test` every time.
+
+After changing `src/server/db/schema.ts`, run `npm run db:generate` and commit
+the SQL it writes to `drizzle/`.
 
 ## Develop
 
@@ -19,7 +29,7 @@ Node 24 or later and pm2. Docker, for the browser tests.
 
 ## Run on the server
 
-    npm run deploy              # builds into .next-prod, starts or restarts pm2 app "aura"
+    npm run deploy              # builds, migrates the database, restarts pm2 app "aura"
     pm2 logs aura
     pm2 save                    # once, so it returns after a reboot (saves every pm2 app)
 

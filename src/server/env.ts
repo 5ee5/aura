@@ -9,6 +9,7 @@ const envSchema = z.object({
     .string()
     .regex(PASSWORD_HASH_PATTERN, "Not set or malformed. Run: npm run set-password"),
   SESSION_SECRET: z.string().min(32, "At least 32 characters. Run: npm run set-password"),
+  DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/, error: "Not a postgresql:// URL. See the README." }),
 });
 
 export type Env = z.infer<typeof envSchema>;

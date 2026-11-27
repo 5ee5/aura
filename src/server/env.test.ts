@@ -5,6 +5,7 @@ const valid = {
   APP_URL: "http://localhost:3300",
   AUTH_PASSWORD_HASH: `scrypt:${"a".repeat(22)}:${"b".repeat(43)}`,
   SESSION_SECRET: "s".repeat(43),
+  DATABASE_URL: "postgresql://user:pass@127.0.0.1:5432/db",
 };
 
 describe("parseEnv", () => {
@@ -16,7 +17,7 @@ describe("parseEnv", () => {
     });
   });
 
-  it.each(["APP_URL", "AUTH_PASSWORD_HASH", "SESSION_SECRET"] as const)(
+  it.each(["APP_URL", "AUTH_PASSWORD_HASH", "SESSION_SECRET", "DATABASE_URL"] as const)(
     "rejects a missing %s",
     (name) => {
       expect(() => parseEnv({ ...valid, [name]: undefined })).toThrow(name);

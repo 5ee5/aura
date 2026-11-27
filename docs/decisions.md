@@ -44,6 +44,21 @@ build needs network access.
 
 The navigation lists only sections that exist. The coach is the home page.
 
+## PostgreSQL on the server, Drizzle migrations
+
+PostgreSQL 18 runs as a system service, not in Docker, and listens on localhost
+only. Migrations are SQL files in `drizzle/`, applied by `npm run deploy` before
+the app restarts, so each one must work with the code already running.
+drizzle-kit has no database credentials, so `push` cannot touch real data.
+
+Tables that hold metrics have a `source`: reported (typed in by the athlete),
+measured, calculated or estimated.
+
+There are no database backups yet.
+
+`npm audit` reports a moderate esbuild advisory through drizzle-kit. It concerns
+esbuild's development server, which drizzle-kit does not run.
+
 ## Changes proposed by the model need approval
 
 Claude gets read and propose tools. Only an explicit user action applies a

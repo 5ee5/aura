@@ -11,4 +11,6 @@ export const E2E_ENV = {
   APP_URL: `http://localhost:${E2E_PORT}`,
   AUTH_PASSWORD_HASH: `scrypt:${salt.toString("base64url")}:${key.toString("base64url")}`,
   SESSION_SECRET: "e2e-session-secret-".padEnd(43, "x"),
+  // No page reads the database yet. Port 1 keeps the real one out of reach.
+  DATABASE_URL: "postgresql://e2e:e2e@127.0.0.1:1/e2e_test",
 };
