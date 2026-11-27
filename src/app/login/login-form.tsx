@@ -18,12 +18,12 @@ export function LoginForm() {
         autoComplete="current-password"
         required
         autoFocus
-        className="rounded-md border px-3 py-2"
+        className="rounded-md border border-line-strong bg-background px-3 py-2"
       />
-      <p role="alert" className="min-h-5 text-sm text-red-500">
+      <p role="alert" className="min-h-5 text-sm text-danger">
         {state.error}
       </p>
-      <button type="submit" disabled={pending} className="rounded-md border px-3 py-2 font-medium">
+      <button type="submit" disabled={pending} className="cursor-pointer rounded-md bg-accent px-3 py-2 font-medium text-background disabled:cursor-default disabled:opacity-60">
         {pending ? "Signing in…" : "Sign in"}
       </button>
     </form>

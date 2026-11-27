@@ -49,13 +49,28 @@ test("refuses unauthenticated, tampered and expired requests", async ({ request 
 
   for (const token of [undefined, expired, tampered]) {
     const headers = token ? { cookie: `${SESSION_COOKIE}=${token}` } : undefined;
-    for (const path of ["/", "/anything", "/page.png"]) {
+    for (const path of ["/", "/profile", "/anything", "/page.png"]) {
       const response = await request.get(path, { headers, maxRedirects: 0 });
       expect(response.status()).toBe(307);
       expect(response.headers().location).toBe("/login");
     }
     const api = await request.get("/api/anything", { headers, maxRedirects: 0 });
     expect(api.status()).toBe(401);
+  }
+});
+
+test("moves between sections and marks the current one", async ({ page }) => {
+  await page.context().addCookies([
+    { name: SESSION_COOKIE, value: createSessionToken(keys), url: E2E_ENV.APP_URL },
+  ]);
+  await page.goto("/");
+  const nav = page.getByRole("navigation", { name: "Main" });
+
+  for (const [name, path] of [["Profile", "/profile"], ["Coach", "/"]] as const) {
+    await nav.getByRole("link", { name }).click();
+    await expect(page).toHaveURL(E2E_ENV.APP_URL + path);
+    await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
+    await expect(nav.locator("[aria-current=page]")).toHaveText(name);
   }
 });
 

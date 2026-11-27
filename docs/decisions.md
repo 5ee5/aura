@@ -36,6 +36,14 @@ the window passes or the app restarts.
 
 This server lacks the libraries headless Chromium needs.
 
+## Dark theme only
+
+There is no light theme or toggle. Colour tokens are in `src/app/globals.css`.
+Barlow is downloaded from Google Fonts at build time and served by the app, so a
+build needs network access.
+
+The navigation lists only sections that exist. The coach is the home page.
+
 ## Changes proposed by the model need approval
 
 Claude gets read and propose tools. Only an explicit user action applies a

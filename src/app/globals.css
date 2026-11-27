@@ -1,1 +1,31 @@
 @import "tailwindcss";
+
+/* Dark only: there is one theme and no toggle. */
+@theme {
+  --color-background: #0c0e11;
+  --color-surface: #15181d;
+  --color-line: #262b33;
+  --color-line-strong: #66707e;
+  --color-foreground: #e7eaee;
+  --color-muted: #98a1ad;
+  --color-accent: #f2b84b;
+  --color-danger: #ff8a80;
+}
+
+@theme inline {
+  --font-sans: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-heading), ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+    background: var(--color-background);
+    color: var(--color-foreground);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+}
