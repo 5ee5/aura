@@ -12,6 +12,7 @@ export interface ChatEntry {
   state?: "streaming" | "done" | "stopped" | "failed";
   problem?: string;
   mock?: boolean;
+  readProfile?: boolean;
 }
 
 /** A shortened reply: shown with its reason, and still a reply. */
@@ -20,6 +21,7 @@ class Shortened extends Error {}
 interface Handlers {
   onConversation: (id: number) => void;
   onText: (text: string) => void;
+  onReadProfile: () => void;
 }
 
 /** Sends one message and reads the reply stream. */
@@ -45,6 +47,7 @@ async function streamReply(body: object, signal: AbortSignal, handlers: Handlers
       const data = JSON.parse(event.slice("data: ".length)) as {
         conversation?: number;
         text?: string;
+        readProfile?: true;
         done?: true;
         error?: string;
         keepReply?: boolean;
@@ -53,6 +56,7 @@ async function streamReply(body: object, signal: AbortSignal, handlers: Handlers
       if (data.error) throw new (data.keepReply ? Shortened : Error)(data.error);
       if (data.conversation) handlers.onConversation(data.conversation);
       if (data.text) handlers.onText(data.text);
+      if (data.readProfile) handlers.onReadProfile();
     }
   }
   throw new Error("The reply was cut off. Send your message again.");
@@ -129,6 +133,7 @@ export function Chat({ load, conversationId, saved, mock }: Props) {
           reply += piece;
           update((m) => ({ text: m.text + piece }));
         },
+        onReadProfile: () => update(() => ({ readProfile: true })),
       });
       update(() => ({ state: "done" }));
       setAnnouncement(`${replyLabel(mock)}: ${reply}`);
@@ -178,6 +183,7 @@ export function Chat({ load, conversationId, saved, mock }: Props) {
               <li key={message.id} data-from="coach" className="break-words">
                 <p className="text-sm text-muted">
                   {replyLabel(message.mock ?? false)}
+                  {message.readProfile && ", read your profile"}
                   {message.state === "stopped" && ", stopped"}
                 </p>
                 <p className="mt-1 whitespace-pre-wrap">

@@ -17,8 +17,18 @@ test("saves chats, reopens them and deletes them", async ({ page, context }) => 
   const reply = log.locator("[data-from=coach]");
   const stop = page.getByRole("button", { name: "Stop" });
   const send = async (text: string) => {
-    await box.fill(text);
-    await page.getByRole("button", { name: "Send" }).click();
+    const button = page.getByRole("button", { name: "Send" });
+    // Text typed before the page is ready is lost, so type until it registers.
+    await expect(async () => {
+      await box.fill(text);
+      await expect(button).toBeEnabled({ timeout: 1000 });
+    }).toPass();
+    await button.click();
+  };
+  const newChat = async () => {
+    await page.getByRole("link", { name: "New chat" }).click();
+    await expect(page).toHaveURL(/\?c=new$/);
+    await expect(reply).toHaveCount(0);
   };
 
   // A finished reply. The address changes mid-stream without interrupting it.
@@ -39,7 +49,7 @@ test("saves chats, reopens them and deletes them", async ({ page, context }) => 
   await expect(log).toContainText("First chat about hills");
 
   // A second chat, stopped partway; the part is kept.
-  await page.getByRole("link", { name: "New chat" }).click();
+  await newChat();
   await expect(log).not.toContainText("hills");
   await send("Second chat about tapering");
   await expect(reply).toContainText("canned mock reply");
@@ -52,7 +62,7 @@ test("saves chats, reopens them and deletes them", async ({ page, context }) => 
   }).toPass();
 
   // New chat again after the address was changed in place, then back.
-  await page.getByRole("link", { name: "New chat" }).click();
+  await newChat();
   await send("Third chat");
   await expect(reply).toContainText("saved.", { timeout: 15_000 });
   await nav.getByRole("link", { name: "Profile" }).click();

@@ -7,7 +7,7 @@ import type { ChatMessage } from "./types";
 
 type Row = typeof coachMessages.$inferSelect;
 type Turn = Pick<Row, "role" | "content" | "status"> & { mock?: boolean };
-export type Ending = Pick<Row, "content" | "status" | "problem">;
+export type Ending = Pick<Row, "content" | "status" | "problem"> & { usedProfile?: boolean };
 
 /**
  * What to send the coach: earlier turns without failed or mock exchanges or

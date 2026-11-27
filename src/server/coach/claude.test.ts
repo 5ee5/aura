@@ -11,22 +11,39 @@ import { costUsd, databaseLedger, type Ledger, type Tokens } from "./usage";
 const ask: ChatMessage[] = [{ role: "user", content: "How far should I run?" }];
 const usage = { input_tokens: 100, output_tokens: 50, cache_read_input_tokens: 10, cache_creation_input_tokens: 20 };
 
-function fakeClient(pieces: string[], stopReason = "end_turn", fail?: Error) {
-  type Stream = (body: unknown, options: { signal: AbortSignal }) => object;
-  const stream = vi.fn<Stream>(() => ({
-    async *[Symbol.asyncIterator]() {
-      if (fail) throw fail;
-      for (const text of pieces) yield { type: "content_block_delta", delta: { type: "text_delta", text } };
-    },
-    finalMessage: async () => ({ stop_reason: stopReason, usage }),
-  }));
+interface Turn {
+  pieces?: string[];
+  stop?: string;
+  content?: object[];
+}
+
+/** Answers each request with the next turn, repeating the last one. */
+function scripted(turns: Turn[], fail?: Error) {
+  let asked = 0;
+  type Stream = (body: { messages: unknown[]; system: unknown }, options: { signal: AbortSignal }) => object;
+  const stream = vi.fn<Stream>(() => {
+    const turn = turns[Math.min(asked++, turns.length - 1)] ?? {};
+    return {
+      async *[Symbol.asyncIterator]() {
+        if (fail) throw fail;
+        for (const text of turn.pieces ?? []) {
+          yield { type: "content_block_delta", delta: { type: "text_delta", text } };
+        }
+      },
+      finalMessage: async () => ({ stop_reason: turn.stop ?? "end_turn", usage, content: turn.content ?? [] }),
+    };
+  });
   return { client: { beta: { messages: { stream } } } as unknown as Anthropic, stream };
 }
 
+const fakeClient = (pieces: string[], stop?: string, fail?: Error) => scripted([{ pieces, stop }], fail);
+const profile = async () => "PROFILE";
+
 function fakeLedger() {
   const settled: Tokens[] = [];
-  const ledger: Ledger = { reserve: async () => 1, settle: async (_id, tokens) => void settled.push(tokens) };
-  return { ledger, settled };
+  const reserve = vi.fn<Ledger["reserve"]>(async () => 1);
+  const ledger: Ledger = { reserve, settle: async (_id, tokens) => void settled.push(tokens) };
+  return { ledger, settled, reserve };
 }
 
 const collect = async (reply: AsyncIterable<string>) => {
@@ -52,7 +69,7 @@ describe("claudeReply", () => {
   it("streams text, sends the history and records what was used", async () => {
     const { client, stream } = fakeClient(["Run ", "easy."]);
     const { ledger, settled } = fakeLedger();
-    expect(await collect(claudeReply(client, ledger)(ask, new AbortController().signal))).toBe("Run easy.");
+    expect(await collect(claudeReply(client, ledger, profile)(ask, new AbortController().signal))).toBe("Run easy.");
     expect(stream.mock.calls[0]?.[0]).toMatchObject({
       model: "claude-sonnet-5-5",
       messages: ask,
@@ -67,13 +84,13 @@ describe("claudeReply", () => {
     ["max_tokens", /length limit/],
   ])("explains a reply that ends with %s", async (reason, message) => {
     const { client } = fakeClient(["Part"], reason);
-    const reply = claudeReply(client, fakeLedger().ledger)(ask, new AbortController().signal);
+    const reply = claudeReply(client, fakeLedger().ledger, profile)(ask, new AbortController().signal);
     await expect(collect(reply)).rejects.toThrow(message);
   });
 
   it("marks only a shortened reply as worth keeping", async () => {
     for (const [reason, keep] of [["max_tokens", true], ["refusal", false]] as const) {
-      const reply = claudeReply(fakeClient(["Part"], reason).client, fakeLedger().ledger);
+      const reply = claudeReply(fakeClient(["Part"], reason).client, fakeLedger().ledger, profile);
       await expect(collect(reply(ask, new AbortController().signal))).rejects.toMatchObject({ keepReply: keep });
     }
   });
@@ -82,7 +99,7 @@ describe("claudeReply", () => {
     const { client, stream } = fakeClient(["one", "two"]);
     const { ledger, settled } = fakeLedger();
     const controller = new AbortController();
-    const reply = claudeReply(client, ledger)(ask, controller.signal)[Symbol.asyncIterator]();
+    const reply = claudeReply(client, ledger, profile)(ask, controller.signal)[Symbol.asyncIterator]();
     await reply.next();
     expect(stream.mock.calls[0]?.[1].signal).toBe(controller.signal);
     controller.abort();
@@ -95,9 +112,82 @@ describe("claudeReply", () => {
     const { client } = fakeClient([], "end_turn", rejected);
     const { ledger, settled } = fakeLedger();
     vi.spyOn(console, "error").mockImplementation(() => {});
-    const reply = claudeReply(client, ledger)(ask, new AbortController().signal);
+    const reply = claudeReply(client, ledger, profile)(ask, new AbortController().signal);
     await expect(collect(reply)).rejects.toThrow(/API key/);
     expect(settled).toEqual([{ input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }]);
+  });
+});
+
+describe("claudeReply with the profile tool", () => {
+  const call = { type: "tool_use", id: "toolu_1", name: "get_profile", input: {} };
+  const thinking = { type: "thinking", thinking: "", signature: "sig" };
+  const signal = () => new AbortController().signal;
+
+  it("returns the turn unchanged with the result, and counts each request", async () => {
+    const first = { pieces: ["Let me look."], stop: "tool_use", content: [thinking, call] };
+    const { client, stream } = scripted([first, { pieces: ["Rest today."] }]);
+    const { ledger, settled, reserve } = fakeLedger();
+    const readProfile = vi.fn();
+    const reply = claudeReply(client, ledger, profile)(ask, signal(), { readProfile });
+
+    expect(await collect(reply)).toBe("Let me look.\n\nRest today.");
+    expect(readProfile).toHaveBeenCalledOnce();
+    const [one, two] = stream.mock.calls.map(([body]) => body);
+    expect(one?.messages).toEqual(ask);
+    expect(two?.messages).toEqual([
+      ...ask,
+      { role: "assistant", content: [thinking, call] },
+      { role: "user", content: [{ type: "tool_result", tool_use_id: "toolu_1", content: "PROFILE" }] },
+    ]);
+    expect(two?.system).toBe(one?.system);
+    expect(reserve).toHaveBeenCalledTimes(2);
+    expect(settled).toHaveLength(2);
+  });
+
+  it("sends nothing more when stopped while reading the profile", async () => {
+    const controller = new AbortController();
+    const { client, stream } = scripted([{ stop: "tool_use", content: [call] }]);
+    const { ledger, reserve } = fakeLedger();
+    const stopping = async () => {
+      controller.abort();
+      return "PROFILE";
+    };
+    await collect(claudeReply(client, ledger, stopping)(ask, controller.signal));
+    expect(stream).toHaveBeenCalledOnce();
+    expect(reserve).toHaveBeenCalledOnce();
+  });
+
+  it("stops after a few rounds", async () => {
+    const { client, stream } = scripted([{ stop: "tool_use", content: [call] }]);
+    const reply = claudeReply(client, fakeLedger().ledger, profile)(ask, signal());
+    await expect(collect(reply)).rejects.toThrow("without answering");
+    expect(stream).toHaveBeenCalledTimes(3);
+  });
+
+  it("tells Claude when the profile cannot be read", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const { client, stream } = scripted([{ stop: "tool_use", content: [call] }, { pieces: ["ok"] }]);
+    const broken = () => Promise.reject(new Error("db"));
+    await collect(claudeReply(client, fakeLedger().ledger, broken)(ask, signal()));
+    expect(JSON.stringify(stream.mock.calls[1]?.[0].messages)).toContain('"is_error":true');
+  });
+
+  it("drops what came before a fallback, and never runs tools after a refusal", async () => {
+    const fallback = { type: "fallback" };
+    const mixed = [thinking, { ...call, id: "old" }, fallback, call];
+    const first = scripted([{ stop: "tool_use", content: mixed }, { pieces: ["ok"] }]);
+    await collect(claudeReply(first.client, fakeLedger().ledger, profile)(ask, signal()));
+    expect(first.stream.mock.calls[1]?.[0].messages.at(-2)).toEqual({
+      role: "assistant",
+      content: [fallback, call],
+    });
+
+    const read = vi.fn(profile);
+    const refused = scripted([{ stop: "refusal", content: [call] }]);
+    await expect(
+      collect(claudeReply(refused.client, fakeLedger().ledger, read)(ask, signal())),
+    ).rejects.toThrow("declined");
+    expect(read).not.toHaveBeenCalled();
   });
 });
 

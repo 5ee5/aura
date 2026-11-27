@@ -1,0 +1,1 @@
+ALTER TABLE "coach_messages" ADD COLUMN "used_profile" boolean DEFAULT false NOT NULL;

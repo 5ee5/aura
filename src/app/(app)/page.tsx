@@ -26,11 +26,12 @@ async function openConversation(wanted: string | string[] | undefined) {
 type Saved = NonNullable<Awaited<ReturnType<typeof loadConversation>>>["messages"][number];
 
 function entry(message: Saved): ChatEntry {
-  const { id, content: text, status, mock } = message;
+  const { id, content: text, status, mock, usedProfile: readProfile } = message;
   if (message.role === "user") return { id, from: "you", text };
   const state =
     status === "failed" ? "failed" : status === "done" || status === "shortened" ? "done" : "stopped";
-  return { id, from: "coach", text, state, mock, problem: message.problem ?? undefined };
+  const problem = message.problem ?? undefined;
+  return { id, from: "coach", text, state, mock, readProfile, problem };
 }
 
 const action = "flex h-10 items-center gap-2 text-sm text-muted hover:text-foreground";
@@ -60,7 +61,7 @@ export default async function CoachPage({ searchParams }: PageProps<"/">) {
       <p className="mt-2 border-b border-line pb-3 text-sm text-accent">
         {mock
           ? "Mock coach: replies are canned."
-          : "Claude can’t see your profile yet. What you type is saved here and sent to Anthropic."}
+          : "Claude can read your profile, injuries included. What you type and what it reads go to Anthropic."}
       </p>
       {/* A new key on every load, so one chat's messages never carry into another. */}
       <Chat

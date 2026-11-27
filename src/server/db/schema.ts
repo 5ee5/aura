@@ -63,6 +63,8 @@ export const coachMessages = pgTable(
     status: messageStatus().notNull().default("done"),
     /** Why a reply failed or was cut short, as shown in the chat. */
     problem: text(),
+    /** The coach read the athlete's profile to write this reply. */
+    usedProfile: boolean("used_profile").notNull().default(false),
     /** Written by the mock, so it is never presented as the coach. */
     mock: boolean().notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

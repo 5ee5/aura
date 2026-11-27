@@ -21,8 +21,8 @@ function fromThisSite(request: Request): boolean {
 
 /**
  * Takes one new message; earlier turns come from the database. Streams
- * server-sent events: {"conversation"}, {"text"} pieces, then {"done"} or
- * {"error"}. A stream that ends with neither was cut off.
+ * server-sent events: {"conversation"}, then {"text"} pieces and {"readProfile"},
+ * then {"done"} or {"error"}. A stream that ends with neither was cut off.
  */
 export async function POST(request: Request): Promise<Response> {
   if (!(await hasSession())) return refuse(401, "Unauthorized");
@@ -38,11 +38,15 @@ export async function POST(request: Request): Promise<Response> {
 
   // The reply is kept here, so it can be saved after the browser has gone.
   let text = "";
+  let usedProfile = false;
   let saved: Promise<void> | undefined;
   const save = (status: Ending["status"], problem: string | null = null) =>
-    (saved ??= finishReply(db, exchange.replyId, { content: text, status, problem }).catch((error) =>
-      console.error("Could not save a coach reply:", (error as Error).name),
-    ));
+    (saved ??= finishReply(db, exchange.replyId, {
+      content: text,
+      status,
+      problem,
+      usedProfile,
+    }).catch((error) => console.error("Could not save a coach reply:", (error as Error).name)));
 
   const abort = new AbortController();
   const signal = AbortSignal.any([request.signal, abort.signal]);
@@ -53,12 +57,21 @@ export async function POST(request: Request): Promise<Response> {
   if (signal.aborted) stopped();
   else signal.addEventListener("abort", stopped, { once: true });
 
-  const reply = coach.reply(exchange.history, signal)[Symbol.asyncIterator]();
+  let output: ReadableStreamDefaultController<Uint8Array> | undefined;
+  const reply = coach
+    .reply(exchange.history, signal, {
+      readProfile() {
+        usedProfile = true;
+        if (!signal.aborted) output?.enqueue(event({ readProfile: true }));
+      },
+    })
+    [Symbol.asyncIterator]();
   const encoder = new TextEncoder();
   const event = (data: object) => encoder.encode(`data: ${JSON.stringify(data)}\n\n`);
 
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
+      output = controller;
       controller.enqueue(event({ conversation: exchange.conversationId }));
     },
     async pull(controller) {

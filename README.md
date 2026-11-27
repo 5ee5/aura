@@ -5,8 +5,8 @@ A single-user AI running coach, self-hosted.
 **Today:** password login, a profile you can edit (preferences, availability,
 goals, personal bests, races, injuries) and a coach chat with Claude. Without an
 API key the chat returns a labelled **mock** reply. Chats are saved and can be
-reopened or deleted. The coach cannot read your profile yet, and there is no
-Garmin or calendar connection.
+reopened or deleted. The coach can read your profile but not change anything.
+There is no Garmin or calendar connection.
 
 ## Requirements
 
@@ -63,7 +63,9 @@ in the project folder, as one block:
    API use is billed separately from a Claude subscription.
 2. Put it in `.env` as `ANTHROPIC_API_KEY=...`, then `pm2 restart aura`.
 
-What you type is saved in the database and sent to Anthropic. `COACH_DAILY_BUDGET_USD` (default 2) caps
+What you type is saved in the database and sent to Anthropic. So is your profile
+whenever the coach reads it, injuries included (your name is not). Replies that
+did are marked "read your profile". `COACH_DAILY_BUDGET_USD` (default 2) caps
 what the app spends in any 24 hours, using its own estimate; stopped replies
 count at the most they could have cost. `npm run dev` uses the real key too; set
 `COACH_MOCK=1` to avoid spending.

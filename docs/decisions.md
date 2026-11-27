@@ -77,6 +77,13 @@ its messages; database backups keep it until they age out.
 Back and forward show a stored copy of a page, so a chat that has sent something
 reloads itself when shown that way.
 
+## The coach reads the profile through one tool
+
+`get_profile` takes no arguments and returns everything except the name. It is
+read only, called when advice needs it, and its result is not saved. A reply
+that uses it is two API requests, each counted against the daily limit, and at
+most three are made.
+
 ## Claude Sonnet 5.5 through the Messages API
 
 Chosen over Opus 5.5 for cost. Effort is `low`, replies are capped at 8000
