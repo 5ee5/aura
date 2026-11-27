@@ -39,6 +39,7 @@ test("shows a proposed workout that can be approved or declined", async ({ page,
 
   await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Workouts" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Workouts" })).toBeVisible();
-  await expect(page.getByRole("article")).toHaveCount(1);
+  // Other tests add workouts too, so count only this one: approved once, declined once.
+  await expect(page.getByRole("article", { name: "Workout: Easy run with strides" })).toHaveCount(1);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBe(0);
 });

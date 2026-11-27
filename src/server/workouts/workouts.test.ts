@@ -70,19 +70,21 @@ describe("breaksRule", () => {
 
   it("allows a workout when nothing is in the way", () => {
     expect(breaksRule(proposal, free, "2026-11-28")).toBeUndefined();
+    // A date it already had may stay, even once it has passed.
+    expect(breaksRule(proposal, free, "2026-12-06", "2026-12-05")).toBeUndefined();
   });
 
   it("blocks hard sessions during an injury, but not easy ones", () => {
     const hurt = { ...free, currentInjuries: ["Calf"] };
-    expect(breaksRule(proposal, hurt, "2026-11-28")).toMatch(/current injury \(Calf\)/);
+    expect(breaksRule(proposal, hurt, "2026-11-28")?.message).toMatch(/injury is current \(Calf\)/);
     expect(breaksRule({ ...proposal, type: "easy" }, hurt, "2026-11-28")).toBeUndefined();
   });
 
   it("respects rest days, available minutes and the calendar", () => {
     // 5 December 2026 is a Saturday.
-    expect(breaksRule(proposal, { ...free, maxMinutes: new Map([[6, 0]]) }, "2026-11-28")).toMatch(/Saturday is/);
-    expect(breaksRule(proposal, { ...free, maxMinutes: new Map([[6, 45]]) }, "2026-11-28")).toMatch(/at most 45/);
-    expect(breaksRule(proposal, free, "2026-12-06")).toMatch(/in the past/);
+    expect(breaksRule(proposal, { ...free, maxMinutes: new Map([[6, 0]]) }, "2026-11-28")?.rule).toBe("rest");
+    expect(breaksRule(proposal, { ...free, maxMinutes: new Map([[6, 45]]) }, "2026-11-28")?.message).toMatch(/than the 45 you have on Saturdays/);
+    expect(breaksRule(proposal, free, "2026-12-06")?.rule).toBe("past");
   });
 });
 

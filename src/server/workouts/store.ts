@@ -17,6 +17,34 @@ export interface Link {
   mock: boolean;
 }
 
+async function insertSteps(db: Pick<Db, "insert">, workoutId: number, steps: Step[], parentId: number | null) {
+  for (const [position, { steps: inner, ...step }] of steps.entries()) {
+    const [row] = await db
+      .insert(workoutSteps)
+      .values({ ...step, workoutId, parentId, position })
+      .returning({ id: workoutSteps.id });
+    if (inner.length) await insertSteps(db, workoutId, inner, row!.id);
+  }
+}
+
+/** Saves the athlete's edits: the details and every step, replacing the old steps. */
+export function updateWorkout(db: Db, id: number, edited: Omit<Proposal, "replacesId">) {
+  return db.transaction(async (tx) => {
+    await tx
+      .update(plannedWorkouts)
+      .set({
+        title: edited.title,
+        type: edited.type,
+        scheduledOn: edited.scheduledOn,
+        description: edited.description,
+        updatedAt: new Date(),
+      })
+      .where(eq(plannedWorkouts.id, id));
+    await tx.delete(workoutSteps).where(eq(workoutSteps.workoutId, id));
+    await insertSteps(tx, id, edited.steps, null);
+  });
+}
+
 /** Whether a proposal may replace this workout: one from the same chat, still current. */
 export async function canReplace(db: Reader, id: number, conversationId: number) {
   const [found] = await db
@@ -48,16 +76,7 @@ export function saveProposal(
       })
       .returning({ id: plannedWorkouts.id });
     const workoutId = workout!.id;
-    const insert = async (steps: Step[], parentId: number | null) => {
-      for (const [position, { steps: inner, ...step }] of steps.entries()) {
-        const [row] = await tx
-          .insert(workoutSteps)
-          .values({ ...step, workoutId, parentId, position })
-          .returning({ id: workoutSteps.id });
-        if (inner.length) await insert(inner, row!.id);
-      }
-    };
-    await insert(proposal.steps, null);
+    await insertSteps(tx, workoutId, proposal.steps, null);
     const changes: StatusChange[] = [];
     if (proposal.replacesId !== null) {
       const replaced = await tx

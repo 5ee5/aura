@@ -15,8 +15,16 @@ export async function proposeWorkout(
 ): Promise<{ outcome: ToolOutcome; workout?: Workout; changes?: StatusChange[] }> {
   const proposal = readProposal(input);
   if (typeof proposal === "string") return { outcome: { content: proposal, is_error: true } };
-  const problem = breaksRule(proposal, await limits(), today);
-  if (problem) return { outcome: { content: problem, is_error: true } };
+  const broken = breaksRule(proposal, await limits(), today);
+  if (broken) {
+    const hint = {
+      injury: "Suggest an easy or recovery run, cross-training or rest, and ask how the injury feels.",
+      past: `Today is ${today}.`,
+      rest: "Pick another day.",
+      too_long: "Shorten it or pick another day.",
+    }[broken.rule];
+    return { outcome: { content: `Rejected by a rule in the app: ${broken.message} ${hint}`, is_error: true } };
+  }
   if (proposal.replacesId !== null && !(await canReplace(db, proposal.replacesId, link.conversationId))) {
     const content = `There is no current workout #${proposal.replacesId} in this chat. Propose it as new, with replaces null.`;
     return { outcome: { content, is_error: true } };

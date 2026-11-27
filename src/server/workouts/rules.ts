@@ -23,27 +23,38 @@ export function limitsFrom(profile: ProfileLike | undefined): Limits {
 
 const DAY_NAMES = ["", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
-/** Why the proposal breaks a rule, worded for the coach; undefined if it is allowed. */
-export function breaksRule(proposal: Proposal, limits: Limits, today: string): string | undefined {
+export interface Broken {
+  rule: "injury" | "past" | "rest" | "too_long";
+  /** Plain enough to show the athlete. */
+  message: string;
+}
+
+/**
+ * Which rule the workout breaks, if any. keepDate is a date it already had,
+ * which may stay even once it is in the past.
+ */
+export function breaksRule(
+  proposal: Proposal,
+  limits: Limits,
+  today: string,
+  keepDate?: string | null,
+): Broken | undefined {
   if (limits.currentInjuries.length && HARD_TYPES.includes(proposal.type)) {
-    return (
-      `Rejected: the athlete has a current injury (${limits.currentInjuries.join(", ")}), so ` +
-      `${WORKOUT_TYPES[proposal.type].toLowerCase()} sessions are not allowed. Suggest an easy ` +
-      "or recovery run, cross-training or rest, and ask how the injury feels."
-    );
+    const message =
+      `Hard sessions aren’t allowed while an injury is current (${limits.currentInjuries.join(", ")}), ` +
+      `and ${WORKOUT_TYPES[proposal.type].toLowerCase()} counts as hard.`;
+    return { rule: "injury", message };
   }
   const date = proposal.scheduledOn;
   if (!date) return undefined;
-  if (date < today) return `Rejected: ${date} is in the past. Today is ${today}.`;
+  if (date < today && date !== keepDate) return { rule: "past", message: `${date} is in the past.` };
   const weekday = new Date(`${date}T00:00:00Z`).getUTCDay() || 7;
   const max = limits.maxMinutes.get(weekday);
-  if (max === 0) return `Rejected: ${DAY_NAMES[weekday]} is the athlete's rest day. Pick another day.`;
+  if (max === 0) return { rule: "rest", message: `${DAY_NAMES[weekday]} is a rest day in your profile.` };
   const minutes = Math.round(estimateMinutes(proposal.steps));
   if (max !== undefined && minutes > max) {
-    return (
-      `Rejected: this takes about ${minutes} minutes, but the athlete has at most ${max} on ` +
-      `${DAY_NAMES[weekday]}s. Shorten it or pick another day.`
-    );
+    const message = `This takes about ${minutes} minutes, more than the ${max} you have on ${DAY_NAMES[weekday]}s.`;
+    return { rule: "too_long", message };
   }
   return undefined;
 }

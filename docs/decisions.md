@@ -102,6 +102,12 @@ revision of a workout still waiting for a decision replaces it at once, and
 declining the revision brings it back. An approved workout is replaced only when
 its revision is approved, so the Workouts page lists one version.
 
+The Studio (`/workouts/[id]`) edits a proposed or approved workout. An edit is
+turned into the same input the coach sends and checked by the same code and
+rules, except that a date the workout already had may stay once it has passed.
+Saving an approved workout keeps it approved: the athlete made the change. The
+coach sees the edited steps on its next reply.
+
 Deleting a chat deletes its unapproved workouts; approved ones stay.
 
 ## Claude Sonnet 5.5 through the Messages API

@@ -74,6 +74,15 @@ export function WorkoutCard({ workout, inList = false, onChanges }: Props) {
         <Steps steps={workout.steps} />
       </div>
       <div className="mt-4 flex flex-wrap items-center gap-3">
+        {(status === "proposed" || status === "approved") && (
+          <Link
+            href={`/workouts/${workout.id}`}
+            aria-label={`Edit ${workout.title}`}
+            className="flex h-10 items-center rounded-lg border border-line-strong px-4"
+          >
+            Edit
+          </Link>
+        )}
         {status === "proposed" ? (
           <>
             <button
