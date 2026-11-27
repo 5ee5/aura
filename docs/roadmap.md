@@ -6,7 +6,7 @@
 2. Login and pm2 deployment, dark theme, layout and navigation (done)
 3. PostgreSQL, migrations, athlete tables (done)
 4. Full-page coach chat with a labelled mock stream (done)
-5. Athlete profile view and editing
+5. Athlete profile view and editing (done)
 6. Documentation
 
 ## Later phases

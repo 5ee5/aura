@@ -5,5 +5,6 @@ export default defineConfig({
   resolve: {
     alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
   },
-  test: { include: ["src/**/*.test.ts"] },
+  // One file at a time: database tests share aura_test.
+  test: { include: ["src/**/*.test.ts"], fileParallelism: false },
 });

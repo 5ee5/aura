@@ -11,6 +11,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 /** Where a number came from. Every table holding metrics carries one. */
@@ -32,13 +33,18 @@ const timestamps = {
 };
 const seconds = (name: string) => numeric(name, { precision: 9, scale: 2, mode: "number" });
 
-export const athletes = pgTable("athletes", {
-  id: id(),
-  name: text().notNull(),
-  trainingPreferences: text("training_preferences"),
-  preferredWorkoutTypes: text("preferred_workout_types").array().notNull().default([]),
-  ...timestamps,
-});
+export const athletes = pgTable(
+  "athletes",
+  {
+    id: id(),
+    name: text().notNull(),
+    trainingPreferences: text("training_preferences"),
+    preferredWorkoutTypes: text("preferred_workout_types").array().notNull().default([]),
+    ...timestamps,
+  },
+  // One user, one row: every row has the same key in this index.
+  () => [uniqueIndex("athletes_only_one").on(sql`(true)`)],
+);
 
 export const goals = pgTable(
   "goals",

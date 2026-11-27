@@ -67,6 +67,16 @@ The route checks the session and that the request's origin is this site, since
 other apps on the same domain would otherwise be able to post with the cookie.
 Conversations are not saved yet.
 
+## One athlete, edited on one page
+
+A unique index allows only one row in `athletes`. People type kilometres and
+`h:mm:ss`; the tables hold metres and seconds (`src/lib/units.ts`). Dates stay
+`YYYY-MM-DD` strings so no time zone can shift them. Anything typed in is saved
+with the source "reported". Each server action calls `requireSession()`.
+
+Browser and database tests empty and use `aura_test`, and refuse any database
+whose name does not end in `_test`. Test files run one at a time.
+
 ## Changes proposed by the model need approval
 
 Claude gets read and propose tools. Only an explicit user action applies a

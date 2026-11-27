@@ -1,30 +1,17 @@
-import { existsSync } from "node:fs";
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { runMigrations } from "./migrate";
-
-// Wipes its database, so it only ever uses one whose name ends in "_test".
-function testDatabaseUrl(): string {
-  if (existsSync(".env")) process.loadEnvFile(".env");
-  const url = new URL(process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL ?? "");
-  if (!process.env.TEST_DATABASE_URL) url.pathname = "/aura_test";
-  if (!url.pathname.endsWith("_test")) throw new Error("Refusing to wipe a non-test database");
-  return url.href;
-}
+import { resetTestDatabase, testDatabaseUrl } from "./test-database";
 
 describe("migrations", () => {
   let client: pg.Client;
 
   beforeAll(async () => {
-    const connectionString = testDatabaseUrl();
-    client = new pg.Client({ connectionString });
-    await client.connect();
-    await client.query("drop schema if exists drizzle cascade");
-    await client.query("drop schema public cascade");
-    await client.query("create schema public");
-    await runMigrations(connectionString);
+    await resetTestDatabase();
     // A second run must find nothing to do.
-    await runMigrations(connectionString);
+    await runMigrations(testDatabaseUrl());
+    client = new pg.Client({ connectionString: testDatabaseUrl() });
+    await client.connect();
   });
 
   afterAll(() => client.end());
@@ -48,6 +35,9 @@ describe("migrations", () => {
     const id = rows[0].id;
     const insert = (sql: string) => client.query(sql, [id]);
 
+    await expect(client.query("insert into athletes (name) values ('Second')")).rejects.toThrow(
+      "athletes_only_one",
+    );
     await expect(
       insert("insert into availability (athlete_id, weekday, max_minutes) values ($1, 8, 60)"),
     ).rejects.toThrow("availability_weekday_range");

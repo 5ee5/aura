@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "athletes_only_one" ON "athletes" USING btree ((true));
