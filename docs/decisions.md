@@ -55,7 +55,8 @@ drizzle-kit has no database credentials, so `push` cannot touch real data.
 Tables that hold metrics have a `source`: reported (typed in by the athlete),
 measured, calculated or estimated.
 
-There are no automatic database backups yet (see the README).
+A systemd user timer dumps the database daily to a second drive and keeps 30
+(see the README). There is no off-machine copy yet.
 
 `npm audit` reports a moderate esbuild advisory through drizzle-kit. It concerns
 esbuild's development server, which drizzle-kit does not run.

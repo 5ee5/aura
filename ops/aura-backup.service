@@ -1,0 +1,8 @@
+[Unit]
+Description=Back up the Aura database
+
+[Service]
+Type=oneshot
+# Change this if the code lives elsewhere.
+WorkingDirectory=%h/Aura
+ExecStart=/usr/bin/node scripts/backup.ts

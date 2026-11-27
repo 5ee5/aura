@@ -103,16 +103,44 @@ Deploy builds whatever is checked out, so check the branch first.
 
 ## Backups
 
-**Nothing is backed up automatically.** To take a copy of the data by hand:
+A timer dumps the database daily at 03:30 and keeps the newest 30. Set it up once:
 
-    (umask 077; sudo -u postgres pg_dump -Fc aura > ~/aura-$(date +%F).dump)
+    mkdir -p /mnt/data/backups
+    mkdir -m 700 /mnt/data/backups/aura
 
-To restore one over the current data:
+Add to `.env` (choose a drive other than the one holding the database, and a
+folder no container or file share can read):
 
-    sudo -u postgres pg_restore --clean --if-exists -d aura < ~/aura-YYYY-MM-DD.dump
+    BACKUP_DIR=/mnt/data/backups/aura
+    BACKUP_MOUNT=/mnt/data
 
-A dump contains personal and health information: keep it private and out of git.
-`.env` is not in git either, and holds the password hash and database connection.
+Then, from the project folder:
+
+    mkdir -p ~/.config/systemd/user
+    cp ops/aura-backup.service ops/aura-backup.timer ~/.config/systemd/user/
+    systemctl --user daemon-reload
+    systemctl --user enable --now aura-backup.timer
+    loginctl enable-linger          # so it runs while you are logged out
+
+| Task | Command |
+|---|---|
+| Back up now | `systemctl --user start aura-backup` |
+| See the last run and any error | `systemctl --user status aura-backup` |
+| See the next run | `systemctl --user list-timers aura-backup.timer` |
+
+**Nothing alerts you if a backup fails**, so check now and then. The timer runs
+the code that is checked out in the project folder.
+
+To restore, replacing the current data (the password is the one in
+`DATABASE_URL`):
+
+    pg_restore --clean --if-exists -h 127.0.0.1 -U aura -d aura /mnt/data/backups/aura/aura-DATE.dump
+
+Dumps contain personal and health information: keep them private and out of git.
+
+**Limits:** a second drive in the same machine does not protect against losing
+the machine. `.env` is not backed up; after a loss, set the password and database
+connection up again.
 
 ## Documentation
 
