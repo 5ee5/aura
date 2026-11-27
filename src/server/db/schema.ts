@@ -25,6 +25,7 @@ export const surface = pgEnum("surface", ["road", "trail", "track"]);
 export const workoutType = pgEnum("workout_type", WORKOUT_TYPE_KEYS);
 export const workoutStatus = pgEnum("workout_status", ["proposed", "approved", "declined", "replaced"]);
 export const stepKind = pgEnum("step_kind", STEP_KINDS);
+export const workoutOutcome = pgEnum("workout_outcome", ["done", "skipped"]);
 export const messageRole = pgEnum("message_role", ["user", "assistant"]);
 /** "streaming" left behind by a restart counts as stopped. */
 export const messageStatus = pgEnum("message_status", [
@@ -93,6 +94,8 @@ export const plannedWorkouts = pgTable(
     /** The reply that proposed it, where its card is shown. */
     messageId: integer("message_id").references(() => coachMessages.id, { onDelete: "set null" }),
     mock: boolean().notNull().default(false),
+    /** Marked by the athlete once the day has come. Null: not marked. */
+    outcome: workoutOutcome(),
     /** The earlier workout this one revises. */
     replacesId: integer("replaces_id").references((): AnyPgColumn => plannedWorkouts.id, {
       onDelete: "set null",

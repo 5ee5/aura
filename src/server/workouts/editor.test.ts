@@ -24,6 +24,7 @@ const workout: Workout = {
   status: "approved",
   mock: false,
   replacesId: null,
+  outcome: null,
   steps: [
     { ...none, kind: "warmup", durationSeconds: 900, intensity: "easy" },
     {

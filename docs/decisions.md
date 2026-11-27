@@ -110,6 +110,16 @@ coach sees the edited steps on its next reply.
 
 Deleting a chat deletes its unapproved workouts; approved ones stay.
 
+## The calendar works on date strings
+
+`/calendar` shows approved workouts by week (Monday first) or month, with rest
+days from availability and race dates from goals and race history. Dates are
+`YYYY-MM-DD` strings with arithmetic in UTC (`src/lib/dates.ts`), and "today" is
+the server's local date. Moving a workout is checked by the same rules as a
+proposal and clears its done/skipped mark. A workout can be marked done or
+skipped once its day has come; until Garmin, that is the only record of what was
+run.
+
 ## Claude Sonnet 5.5 through the Messages API
 
 Chosen over Opus 5.5 for cost. Effort is `low`, replies are capped at 8000

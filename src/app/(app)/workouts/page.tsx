@@ -13,7 +13,12 @@ export default async function WorkoutsPage() {
 
   return (
     <div className="mx-auto max-w-3xl">
-      <h1 className="font-display text-3xl">Workouts</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="font-display text-3xl">Workouts</h1>
+        <Link href="/calendar" className="text-accent underline underline-offset-4">
+          Calendar
+        </Link>
+      </div>
       <p className="mt-2 text-muted">
         Workouts you approved, for entering in Garmin Connect. Dated ones come first.
       </p>

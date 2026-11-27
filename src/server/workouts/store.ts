@@ -124,6 +124,7 @@ async function withSteps(db: Reader, rows: WorkoutRow[]): Promise<(Workout & { m
     status: row.status,
     mock: row.mock,
     replacesId: row.replacesId,
+    outcome: row.outcome,
     messageId: row.messageId,
     steps: nest(steps.filter((step) => step.workoutId === row.id), null),
   }));
@@ -157,6 +158,43 @@ export async function approvedWorkouts(db: Db) {
     .where(eq(plannedWorkouts.status, "approved"))
     .orderBy(sql`${plannedWorkouts.scheduledOn} asc nulls last`, sql`${plannedWorkouts.id} desc`);
   return withSteps(db, rows);
+}
+
+/** Approved workouts dated from..to, inclusive, by date. */
+export async function approvedBetween(db: Reader, from: string, to: string) {
+  const rows = await db
+    .select()
+    .from(plannedWorkouts)
+    .where(
+      and(
+        eq(plannedWorkouts.status, "approved"),
+        sql`${plannedWorkouts.scheduledOn} between ${from} and ${to}`,
+      ),
+    )
+    .orderBy(asc(plannedWorkouts.scheduledOn), asc(plannedWorkouts.id));
+  return withSteps(db, rows);
+}
+
+/** Approved workouts with no date yet, newest first. */
+export async function unscheduledApproved(db: Reader) {
+  const rows = await db
+    .select()
+    .from(plannedWorkouts)
+    .where(and(eq(plannedWorkouts.status, "approved"), sql`${plannedWorkouts.scheduledOn} is null`))
+    .orderBy(sql`${plannedWorkouts.id} desc`);
+  return withSteps(db, rows);
+}
+
+/** Moves a workout to another day, or off the calendar; any done/skipped mark is cleared. */
+export async function reschedule(db: Db, id: number, date: string | null) {
+  await db
+    .update(plannedWorkouts)
+    .set({ scheduledOn: date, outcome: null, updatedAt: new Date() })
+    .where(eq(plannedWorkouts.id, id));
+}
+
+export async function setOutcome(db: Db, id: number, outcome: "done" | "skipped" | null) {
+  await db.update(plannedWorkouts).set({ outcome, updatedAt: new Date() }).where(eq(plannedWorkouts.id, id));
 }
 
 /**

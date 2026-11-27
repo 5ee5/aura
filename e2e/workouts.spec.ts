@@ -22,6 +22,9 @@ test("shows a proposed workout that can be approved or declined", async ({ page,
     await expect(page.getByRole("button", { name: "Stop" })).toBeHidden({ timeout: 15_000 });
   };
   const card = page.getByRole("article", { name: "Workout: Easy run with strides" });
+  // Other tests approve this mock workout too, so count from here.
+  await page.goto("/workouts");
+  const before = await card.count();
 
   await ask();
   await expect(card).toContainText("Repeat 4 times:");
@@ -37,9 +40,9 @@ test("shows a proposed workout that can be approved or declined", async ({ page,
   await card.getByRole("button", { name: "Decline" }).click();
   await expect(card.getByRole("status")).toHaveText("Declined");
 
-  await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Workouts" }).click();
+  await page.goto("/workouts");
   await expect(page.getByRole("heading", { level: 1, name: "Workouts" })).toBeVisible();
-  // Other tests add workouts too, so count only this one: approved once, declined once.
-  await expect(page.getByRole("article", { name: "Workout: Easy run with strides" })).toHaveCount(1);
+  // Approved once, declined once: one more on the list.
+  await expect(card).toHaveCount(before + 1);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBe(0);
 });

@@ -57,6 +57,8 @@ export interface Workout {
   /** Made by the mock coach. */
   mock: boolean;
   replacesId: number | null;
+  /** Done or skipped, once marked. */
+  outcome: "done" | "skipped" | null;
   steps: Step[];
 }
 
@@ -108,8 +110,9 @@ export function summarizeWorkout(workout: Workout): string {
     declined: "declined by the athlete",
     replaced: "replaced by a newer version",
   }[workout.status];
+  const outcome = workout.outcome ? ` Marked ${workout.outcome} by the athlete.` : "";
   return [
-    `[Workout card #${workout.id}: "${workout.title}", ${WORKOUT_TYPES[workout.type]}, ${workout.scheduledOn ?? "any day"}; ${status}.]`,
+    `[Workout card #${workout.id}: "${workout.title}", ${WORKOUT_TYPES[workout.type]}, ${workout.scheduledOn ?? "any day"}; ${status}.${outcome}]`,
     ...lines(workout.steps, "  "),
   ].join("\n");
 }
