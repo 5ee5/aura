@@ -120,6 +120,14 @@ proposal and clears its done/skipped mark. A workout can be marked done or
 skipped once its day has come; until Garmin, that is the only record of what was
 run.
 
+## Plans are split into blocks by date
+
+A training plan has dates and an optional goal. Its blocks (base, build, peak,
+taper, recovery, race) sit inside the plan's dates without overlapping, each
+with an optional weekly-minutes target. A workout belongs to whichever block its
+date falls in; nothing links them directly. Blocks have a status so the coach
+can propose one later, but only approved blocks appear.
+
 ## Claude Sonnet 5.5 through the Messages API
 
 Chosen over Opus 5.5 for cost. Effort is `low`, replies are capped at 8000

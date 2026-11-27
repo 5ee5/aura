@@ -57,6 +57,13 @@
       "when": 1795818971948,
       "tag": "0007_workout_outcome",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1795819328518,
+      "tag": "0008_training_plans",
+      "breakpoints": true
     }
   ]
 }

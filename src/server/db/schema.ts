@@ -26,6 +26,7 @@ export const workoutType = pgEnum("workout_type", WORKOUT_TYPE_KEYS);
 export const workoutStatus = pgEnum("workout_status", ["proposed", "approved", "declined", "replaced"]);
 export const stepKind = pgEnum("step_kind", STEP_KINDS);
 export const workoutOutcome = pgEnum("workout_outcome", ["done", "skipped"]);
+export const blockFocus = pgEnum("block_focus", ["base", "build", "peak", "taper", "recovery", "race"]);
 export const messageRole = pgEnum("message_role", ["user", "assistant"]);
 /** "streaming" left behind by a restart counts as stopped. */
 export const messageStatus = pgEnum("message_status", [
@@ -260,5 +261,50 @@ export const availability = pgTable(
     unique("availability_one_per_weekday").on(t.athleteId, t.weekday),
     check("availability_weekday_range", sql`${t.weekday} between 1 and 7`),
     check("availability_minutes_range", sql`${t.maxMinutes} between 0 and 1440`),
+  ],
+);
+
+/** A training plan towards a goal, split into blocks. */
+export const trainingPlans = pgTable(
+  "training_plans",
+  {
+    id: id(),
+    name: text().notNull(),
+    goalId: integer("goal_id").references(() => goals.id, { onDelete: "set null" }),
+    startOn: date("start_on").notNull(),
+    endOn: date("end_on").notNull(),
+    notes: text(),
+    ...timestamps,
+  },
+  (t) => [check("training_plans_dates_ordered", sql`${t.endOn} >= ${t.startOn}`)],
+);
+
+/** A stretch of a plan with one focus. The coach can propose one; the athlete approves. */
+export const trainingBlocks = pgTable(
+  "training_blocks",
+  {
+    id: id(),
+    planId: integer("plan_id")
+      .notNull()
+      .references(() => trainingPlans.id, { onDelete: "cascade" }),
+    name: text().notNull(),
+    focus: blockFocus().notNull(),
+    startOn: date("start_on").notNull(),
+    endOn: date("end_on").notNull(),
+    /** A target for each week, roughly; null when not set. */
+    weeklyMinutes: integer("weekly_minutes"),
+    notes: text(),
+    status: workoutStatus().notNull().default("approved"),
+    conversationId: integer("conversation_id").references(() => coachConversations.id, {
+      onDelete: "set null",
+    }),
+    messageId: integer("message_id").references(() => coachMessages.id, { onDelete: "set null" }),
+    mock: boolean().notNull().default(false),
+    ...timestamps,
+  },
+  (t) => [
+    index("training_blocks_plan").on(t.planId),
+    check("training_blocks_dates_ordered", sql`${t.endOn} >= ${t.startOn}`),
+    check("training_blocks_minutes_range", sql`${t.weeklyMinutes} between 0 and 3000`),
   ],
 );

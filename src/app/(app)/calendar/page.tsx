@@ -1,7 +1,8 @@
 import { ChevronLeft, ChevronRight, Flag } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { addDays, addMonths, formatDate, isDate, localToday, monthWeeks, startOfWeek } from "@/lib/dates";
+import { addDays, addMonths, daysBetween, formatDate, isDate, localToday, monthWeeks, startOfWeek } from "@/lib/dates";
+import { BLOCK_FOCUSES } from "@/lib/plans";
 import { requireSession } from "@/server/auth/dal";
 import { calendarDays, type Day } from "@/server/calendar/data";
 import { CalendarEntry } from "./entry";
@@ -121,7 +122,7 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
   const weeks = view === "month" ? monthWeeks(anchor) : [startOfWeek(anchor)];
   const from = weeks[0]!;
   const to = addDays(weeks.at(-1)!, 6);
-  const { days, unscheduled } = await calendarDays(from, to);
+  const { days, unscheduled, blocks } = await calendarDays(from, to);
   const previous = view === "month" ? addMonths(anchor, -1) : addDays(from, -7);
   const next = view === "month" ? addMonths(anchor, 1) : addDays(from, 7);
   const title =
@@ -143,6 +144,9 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
           <Link href="/workouts" className={tab}>
             List
           </Link>
+          <Link href="/plans" className={tab}>
+            Plans
+          </Link>
         </div>
       </div>
       <nav aria-label="Dates" className="mt-3 flex items-center justify-between gap-2">
@@ -163,6 +167,28 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
           </Link>
         </div>
       </nav>
+
+      {blocks.length > 0 && (
+        <ul aria-label="Training blocks" className="mt-3 flex flex-col gap-1">
+          {blocks.map((block) => {
+            const total = Math.ceil((daysBetween(block.startOn, block.endOn) + 1) / 7);
+            const week = Math.min(total, Math.max(1, Math.floor(daysBetween(block.startOn, from) / 7) + 1));
+            return (
+              <li key={block.id} className="rounded-lg border-l-4 border-accent bg-surface px-3 py-2 text-sm">
+                <Link href={`/plans/${block.planId}`} className="font-medium underline-offset-4 hover:underline">
+                  {block.name}
+                </Link>
+                <span className="text-muted">
+                  {" "}
+                  {BLOCK_FOCUSES[block.focus].toLowerCase()}, {block.planName}
+                  {view === "week" && block.startOn <= from ? `, week ${week} of ${total}` : ""}
+                  {block.weeklyMinutes !== null && `, about ${block.weeklyMinutes} min a week`}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
 
       {view === "week" ? <WeekView days={days} today={today} /> : <MonthView days={days} month={anchor} today={today} />}
 

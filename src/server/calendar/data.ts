@@ -2,6 +2,7 @@ import "server-only";
 import { addDays, isoWeekday } from "@/lib/dates";
 import { HARD_TYPES, type Workout, estimateMinutes } from "@/lib/workout";
 import { getDb } from "@/server/db/client";
+import { blocksBetween } from "@/server/plans/store";
 import { getProfile } from "@/server/profile/data";
 import { approvedBetween, unscheduledApproved } from "@/server/workouts/store";
 import type { EntryWorkout } from "@/app/(app)/calendar/entry";
@@ -27,10 +28,11 @@ export const toEntry = (workout: Workout): EntryWorkout => ({
 /** Every day from..to inclusive, with what is planned on it. */
 export async function calendarDays(from: string, to: string) {
   const db = getDb();
-  const [workouts, unscheduled, profile] = await Promise.all([
+  const [workouts, unscheduled, profile, blocks] = await Promise.all([
     approvedBetween(db, from, to),
     unscheduledApproved(db),
     getProfile(),
+    blocksBetween(db, from, to),
   ]);
   const restDays = new Set(profile?.week.filter((d) => d.maxMinutes === 0).map((d) => d.weekday));
   const races = [
@@ -48,5 +50,5 @@ export async function calendarDays(from: string, to: string) {
       workouts: workouts.filter((w) => w.scheduledOn === date).map(toEntry),
     });
   }
-  return { days, unscheduled: unscheduled.map(toEntry) };
+  return { days, unscheduled: unscheduled.map(toEntry), blocks };
 }

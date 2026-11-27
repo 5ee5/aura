@@ -31,6 +31,8 @@ describe("migrations", () => {
       "personal_bests",
       "planned_workouts",
       "race_results",
+      "training_blocks",
+      "training_plans",
       "workout_steps",
     ]);
   });

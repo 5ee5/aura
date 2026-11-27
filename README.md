@@ -8,7 +8,7 @@ API key the chat returns a labelled **mock** reply. Chats are saved and can be
 reopened or deleted. The coach can read your profile, and propose workouts that
 you approve or decline; approved ones are listed under Workouts. Any current
 workout can be edited step by step in the Studio, scheduled on the Calendar,
-and marked done or skipped.
+and marked done or skipped. Plans split the season into blocks.
 There is no Garmin or calendar connection.
 
 ## Requirements

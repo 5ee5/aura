@@ -8,7 +8,7 @@ import { requireSession } from "@/server/auth/dal";
 import { saveAbout, saveBest, saveGoal, saveInjury, saveRace, saveWeek } from "@/server/profile/actions";
 import { getProfile } from "@/server/profile/data";
 import { Entries } from "./entries";
-import { Input, Row, Select, TextArea } from "./fields";
+import { Input, Row, Select, TextArea } from "@/components/form-fields";
 
 export const metadata: Metadata = { title: "Profile" };
 
