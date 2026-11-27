@@ -7,7 +7,7 @@
 3. PostgreSQL, migrations, athlete tables (done)
 4. Full-page coach chat with a labelled mock stream (done)
 5. Athlete profile view and editing (done)
-6. Documentation
+6. Documentation (done)
 
 ## Later phases
 

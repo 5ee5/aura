@@ -25,8 +25,9 @@ A scrypt hash and a signing secret live in `.env`. Sessions are signed cookies
 lasting 30 days. Changing the password ends them all. Signing out clears the
 cookie in that browser only; there is no server-side session list.
 
-The proxy blocks unauthenticated requests, and every page, server action and
-route handler must also call `requireSession()`.
+The proxy blocks unauthenticated requests. Every page and server action must
+also call `requireSession()`, and every route handler `hasSession()`, answering
+401 without it.
 
 Login attempts are limited in memory to 5 per address and 50 in total per 15
 minutes. The total limit means a flood of guesses can lock the owner out until
@@ -54,7 +55,7 @@ drizzle-kit has no database credentials, so `push` cannot touch real data.
 Tables that hold metrics have a `source`: reported (typed in by the athlete),
 measured, calculated or estimated.
 
-There are no database backups yet.
+There are no automatic database backups yet (see the README).
 
 `npm audit` reports a moderate esbuild advisory through drizzle-kit. It concerns
 esbuild's development server, which drizzle-kit does not run.
