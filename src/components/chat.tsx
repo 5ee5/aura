@@ -1,52 +1,37 @@
 "use client";
 
 import { ArrowUp, Square } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { MAX_HISTORY, MAX_MESSAGE, MAX_MESSAGES } from "@/lib/chat-limits";
+import { MAX_MESSAGE } from "@/lib/chat-limits";
 
-interface Message {
+export interface ChatEntry {
   id: number;
   from: "you" | "coach";
   text: string;
   state?: "streaming" | "done" | "stopped" | "failed";
   problem?: string;
+  mock?: boolean;
 }
 
-interface Sent {
-  role: "user" | "assistant";
-  content: string;
-}
-
-/** A shortened reply: shown with its reason, and still part of the conversation. */
+/** A shortened reply: shown with its reason, and still a reply. */
 class Shortened extends Error {}
 
-/** The earlier turns worth sending: no failed exchanges, no empty replies, newest first to fit. */
-function history(messages: Message[], next: string): Sent[] {
-  const sent: Sent[] = [];
-  for (const [index, message] of messages.entries()) {
-    if (message.from === "you") {
-      if (messages[index + 1]?.state !== "failed") sent.push({ role: "user", content: message.text });
-    } else if (message.state !== "failed" && message.text.trim()) {
-      sent.push({ role: "assistant", content: message.text });
-    }
-  }
-  sent.push({ role: "user", content: next });
-  const size = () => sent.reduce((n, m) => n + m.content.length, 0);
-  while (sent.length > 1 && (sent.length > MAX_MESSAGES || size() > MAX_HISTORY || sent[0]?.role !== "user")) {
-    sent.shift();
-  }
-  return sent;
+interface Handlers {
+  onConversation: (id: number) => void;
+  onText: (text: string) => void;
 }
 
-/** Reads the reply stream, calling onText for each piece. */
-async function streamReply(messages: Sent[], signal: AbortSignal, onText: (text: string) => void) {
+/** Sends one message and reads the reply stream. */
+async function streamReply(body: object, signal: AbortSignal, handlers: Handlers) {
   const response = await fetch("/api/coach", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ messages }),
+    body: JSON.stringify(body),
     signal,
   });
   if (response.status === 401) throw new Error("You’ve been signed out. Reload to sign in.");
+  if (response.status === 404) throw new Error("That chat was deleted. Start a new one.");
   if (!response.ok || !response.body) throw new Error("The reply failed. Send your message again.");
 
   const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
@@ -58,6 +43,7 @@ async function streamReply(messages: Sent[], signal: AbortSignal, onText: (text:
     buffer = events.pop() ?? "";
     for (const event of events) {
       const data = JSON.parse(event.slice("data: ".length)) as {
+        conversation?: number;
         text?: string;
         done?: true;
         error?: string;
@@ -65,25 +51,47 @@ async function streamReply(messages: Sent[], signal: AbortSignal, onText: (text:
       };
       if (data.done) return;
       if (data.error) throw new (data.keepReply ? Shortened : Error)(data.error);
-      onText(data.text ?? "");
+      if (data.conversation) handlers.onConversation(data.conversation);
+      if (data.text) handlers.onText(data.text);
     }
   }
   throw new Error("The reply was cut off. Send your message again.");
 }
 
-/** The conversation lives only in this component: nothing is saved yet. */
-export function Chat({ mock }: { mock: boolean }) {
-  const replyLabel = mock ? "Mock reply" : "Coach";
-  const [messages, setMessages] = useState<Message[]>([]);
+/**
+ * Loads of this page that have since sent something. Back and forward show a
+ * stored copy of the page, which for these is out of date.
+ */
+const outdated = new Set<string>();
+
+interface Props {
+  /** Different on every load from the server. */
+  load: string;
+  /** Absent until the first message of a new chat is saved. */
+  conversationId?: number;
+  saved: ChatEntry[];
+  mock: boolean;
+}
+
+export function Chat({ load, conversationId, saved, mock }: Props) {
+  const router = useRouter();
+  const replyLabel = (isMock: boolean) => (isMock ? "Mock reply" : "Coach");
+  const [messages, setMessages] = useState<ChatEntry[]>(saved);
   const [draft, setDraft] = useState("");
   const [announcement, setAnnouncement] = useState("");
+  const conversation = useRef(conversationId);
   const active = useRef<AbortController | null>(null);
   const log = useRef<HTMLDivElement>(null);
   const follow = useRef(true);
-  const nextId = useRef(0);
+  // Negative, so they never collide with saved messages' ids.
+  const nextId = useRef(-1);
   const busy = messages.at(-1)?.state === "streaming";
 
   useEffect(() => () => active.current?.abort(), []);
+
+  useEffect(() => {
+    if (outdated.has(load)) router.refresh();
+  }, [load, router]);
 
   useEffect(() => {
     if (follow.current && log.current) log.current.scrollTop = log.current.scrollHeight;
@@ -93,29 +101,37 @@ export function Chat({ mock }: { mock: boolean }) {
     const text = draft.trim();
     if (!text || busy) return;
 
+    outdated.add(load);
     const controller = new AbortController();
     active.current = controller;
     follow.current = true;
-    const replyId = nextId.current + 1;
-    nextId.current += 2;
+    const replyId = nextId.current;
+    nextId.current -= 2;
     setDraft("");
     setAnnouncement("");
     setMessages((all) => [
       ...all,
       { id: replyId - 1, from: "you", text },
-      { id: replyId, from: "coach", text: "", state: "streaming" },
+      { id: replyId, from: "coach", text: "", state: "streaming", mock },
     ]);
-    const update = (change: (message: Message) => Partial<Message>) =>
+    const update = (change: (message: ChatEntry) => Partial<ChatEntry>) =>
       setMessages((all) => all.map((m) => (m.id === replyId ? { ...m, ...change(m) } : m)));
 
     let reply = "";
     try {
-      await streamReply(history(messages, text), controller.signal, (piece) => {
-        reply += piece;
-        update((m) => ({ text: m.text + piece }));
+      await streamReply({ conversationId: conversation.current, message: text }, controller.signal, {
+        onConversation(id) {
+          conversation.current = id;
+          // The address changes without loading the page again.
+          window.history.replaceState(null, "", `/?c=${id}`);
+        },
+        onText(piece) {
+          reply += piece;
+          update((m) => ({ text: m.text + piece }));
+        },
       });
       update(() => ({ state: "done" }));
-      setAnnouncement(`${replyLabel}: ${reply}`);
+      setAnnouncement(`${replyLabel(mock)}: ${reply}`);
     } catch (error) {
       if (controller.signal.aborted) {
         update(() => ({ state: "stopped" }));
@@ -161,7 +177,7 @@ export function Chat({ mock }: { mock: boolean }) {
             ) : (
               <li key={message.id} data-from="coach" className="break-words">
                 <p className="text-sm text-muted">
-                  {replyLabel}
+                  {replyLabel(message.mock ?? false)}
                   {message.state === "stopped" && ", stopped"}
                 </p>
                 <p className="mt-1 whitespace-pre-wrap">

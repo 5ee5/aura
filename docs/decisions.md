@@ -67,8 +67,15 @@ esbuild's development server, which drizzle-kit does not run.
 reply comes from `src/server/coach/`: Claude when there is a key, else a mock.
 The route checks the session and that the request's origin is this site, since
 other apps on the same domain would otherwise be able to post with the cookie.
-Conversations are not saved yet: the browser sends the earlier turns, as text
-only, with each message.
+## Conversations are kept by the server
+
+The browser sends only the new message. Earlier turns are read from
+`coach_messages`, as text only, leaving out failed exchanges. The server holds
+the reply as it streams, so a stopped one is saved too. Deleting a chat removes
+its messages; database backups keep it until they age out.
+
+Back and forward show a stored copy of a page, so a chat that has sent something
+reloads itself when shown that way.
 
 ## Claude Sonnet 5.5 through the Messages API
 

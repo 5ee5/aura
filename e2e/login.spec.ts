@@ -50,7 +50,7 @@ test("refuses unauthenticated, tampered and expired requests", async ({ request 
 
   for (const token of [undefined, expired, tampered]) {
     const headers = token ? { cookie: `${SESSION_COOKIE}=${token}` } : undefined;
-    for (const path of ["/", "/profile", "/anything", "/page.png"]) {
+    for (const path of ["/", "/?c=1", "/chats", "/profile", "/anything", "/page.png"]) {
       const response = await request.get(path, { headers, maxRedirects: 0 });
       expect(response.status()).toBe(307);
       expect(response.headers().location).toBe("/login");
@@ -101,13 +101,6 @@ test("streams a mock reply that can be stopped", async ({ page, context }) => {
   await expect(reply).toContainText("saved.", { timeout: 15_000 });
   await expect(stop).toBeHidden();
 
-  // Earlier turns go with the next message, the stopped part included.
-  const sent = page.waitForRequest("**/api/coach");
-  await box.fill("Third");
-  await box.press("Enter");
-  const roles = (await sent).postDataJSON().messages.map((m: { role: string }) => m.role);
-  expect(roles).toEqual(["user", "assistant", "user", "assistant", "user"]);
-  await expect(stop).toBeHidden({ timeout: 15_000 });
 
   // On a phone only the conversation scrolls, and the box clears the tabs.
   // The short height is roughly what is left with a keyboard open.
@@ -115,8 +108,14 @@ test("streams a mock reply that can be stopped", async ({ page, context }) => {
   for (const [width, height] of [[412, 780], [412, 420], [320, 600]] as const) {
     await page.setViewportSize({ width, height });
     expect(
-      await page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight),
-    ).toBe(0);
+      await page.evaluate(() => {
+        const main = document.querySelector("main")!;
+        return [
+          document.documentElement.scrollHeight - window.innerHeight,
+          main.scrollWidth - main.clientWidth,
+        ];
+      }),
+    ).toEqual([0, 0]);
     const input = await box.boundingBox();
     expect(input!.y + input!.height).toBeLessThanOrEqual(height);
     const tabs = await page.getByRole("navigation", { name: "Main" }).boundingBox();
@@ -126,7 +125,7 @@ test("streams a mock reply that can be stopped", async ({ page, context }) => {
 });
 
 test("refuses chat requests from signed-out visitors and other sites", async ({ request }) => {
-  const data = { messages: [{ role: "user", content: "hi" }] };
+  const data = { message: "hi" };
   const cookie = `${SESSION_COOKIE}=${createSessionToken(keys)}`;
   const post = (headers: Record<string, string>) => request.post("/api/coach", { data, headers });
 

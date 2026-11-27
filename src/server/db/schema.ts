@@ -1,6 +1,7 @@
 // Athlete tables. Loaded by drizzle-kit as well as the app: no "@/" imports.
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   check,
   date,
   index,
@@ -19,6 +20,15 @@ import {
 export const dataSource = pgEnum("data_source", ["reported", "measured", "calculated", "estimated"]);
 export const goalStatus = pgEnum("goal_status", ["active", "achieved", "abandoned"]);
 export const surface = pgEnum("surface", ["road", "trail", "track"]);
+export const messageRole = pgEnum("message_role", ["user", "assistant"]);
+/** "streaming" left behind by a restart counts as stopped. */
+export const messageStatus = pgEnum("message_status", [
+  "streaming",
+  "done",
+  "shortened",
+  "stopped",
+  "failed",
+]);
 
 const id = () => integer().primaryKey().generatedAlwaysAsIdentity();
 const athleteId = () =>
@@ -33,6 +43,32 @@ const timestamps = {
     .$onUpdate(() => new Date()),
 };
 const seconds = (name: string) => numeric(name, { precision: 9, scale: 2, mode: "number" });
+
+export const coachConversations = pgTable("coach_conversations", {
+  id: id(),
+  /** The start of the first message. */
+  title: text().notNull(),
+  ...timestamps,
+});
+
+export const coachMessages = pgTable(
+  "coach_messages",
+  {
+    id: id(),
+    conversationId: integer("conversation_id")
+      .notNull()
+      .references(() => coachConversations.id, { onDelete: "cascade" }),
+    role: messageRole().notNull(),
+    content: text().notNull().default(""),
+    status: messageStatus().notNull().default("done"),
+    /** Why a reply failed or was cut short, as shown in the chat. */
+    problem: text(),
+    /** Written by the mock, so it is never presented as the coach. */
+    mock: boolean().notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("coach_messages_conversation").on(t.conversationId, t.id)],
+);
 
 /** One row per request to Claude, for the daily spending limit. */
 export const coachUsage = pgTable(
