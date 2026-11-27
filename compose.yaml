@@ -1,8 +1,0 @@
-services:
-  app:
-    build: .
-    env_file: .env
-    ports:
-      # Localhost only. Do not widen this before the app has a login.
-      - "127.0.0.1:3300:3300"
-    restart: unless-stopped

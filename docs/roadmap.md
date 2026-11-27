@@ -2,8 +2,8 @@
 
 ## Phase 1: foundation
 
-1. Tooling, strict TypeScript, tests, environment validation, Docker (done)
-2. Login, then dark theme, layout and navigation
+1. Tooling, strict TypeScript, tests, environment validation (done)
+2. Login and pm2 deployment (done), then dark theme, layout and navigation
 3. PostgreSQL, migrations, athlete tables
 4. Full-page coach chat with a labelled mock stream
 5. Athlete profile view and editing
