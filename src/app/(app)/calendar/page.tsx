@@ -134,7 +134,7 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
     <div className="mx-auto max-w-3xl">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="font-display text-3xl">Calendar</h1>
-        <div className="flex gap-1">
+        <div className="flex flex-wrap gap-1">
           <Link href={`/calendar?view=week&date=${anchor}`} aria-current={view === "week" ? "page" : undefined} className={tab}>
             Week
           </Link>
@@ -146,6 +146,9 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
           </Link>
           <Link href="/plans" className={tab}>
             Plans
+          </Link>
+          <Link href="/analytics" className={tab}>
+            Analytics
           </Link>
         </div>
       </div>

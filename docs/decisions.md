@@ -151,6 +151,13 @@ each workout's date at the time. Approving re-checks every change against the
 rules and refuses the set if any workout has moved since. A cancelled workout
 keeps its row with status "cancelled". The coach cannot create plans.
 
+## Analytics are planned versus done, for now
+
+`/analytics` shows eight weeks of approved workouts: planned and done time,
+done and skipped counts, and the share of planned time in hard sessions. All of
+it comes from the athlete's own marks and estimated minutes. Pace, heart rate
+and load wait for Garmin data.
+
 ## Claude Sonnet 5.5 through the Messages API
 
 Chosen over Opus 5.5 for cost. Effort is `low`, replies are capped at 8000
