@@ -52,7 +52,7 @@ only. Migrations are SQL files in `drizzle/`, applied by `npm run deploy` before
 the app restarts, so each one must work with the code already running.
 drizzle-kit has no database credentials, so `push` cannot touch real data.
 
-Tables that hold metrics have a `source`: reported (typed in by the athlete),
+Tables that hold athlete metrics have a `source`: reported (typed in by the athlete),
 measured, calculated or estimated.
 
 A systemd user timer dumps the database daily to a second drive and keeps 30
@@ -63,11 +63,25 @@ esbuild's development server, which drizzle-kit does not run.
 
 ## Coach replies stream as server-sent events
 
-`POST /api/coach` sends `{"text"}` pieces and then `{"done"}`. The reply comes
-from a mock in `src/server/coach/`; Claude will replace it behind the same type.
+`POST /api/coach` sends `{"text"}` pieces and then `{"done"}` or `{"error"}`. The
+reply comes from `src/server/coach/`: Claude when there is a key, else a mock.
 The route checks the session and that the request's origin is this site, since
 other apps on the same domain would otherwise be able to post with the cookie.
-Conversations are not saved yet.
+Conversations are not saved yet: the browser sends the earlier turns, as text
+only, with each message.
+
+## Claude Sonnet 5.5 through the Messages API
+
+Chosen over Opus 5.5 for cost. Effort is `low`, replies are capped at 8000
+tokens, and a request declined by a safety check falls back to another model.
+The client is given its key and address explicitly, never from `ANTHROPIC_*`
+variables. Every request reserves its worst-case cost in `coach_usage` before it
+is sent, which bounds spending even across restarts. Tests never call Claude.
+
+## Deploy starts the app with a clean environment
+
+pm2 stores the environment of whoever starts an app. `scripts/deploy.sh` deletes
+and starts `aura` with only `HOME`, `USER`, `PATH` and `LANG`.
 
 ## One athlete, edited on one page
 

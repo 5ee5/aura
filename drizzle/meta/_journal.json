@@ -15,6 +15,13 @@
       "when": 1795809153157,
       "tag": "0001_one_athlete",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795811158480,
+      "tag": "0002_coach_usage",
+      "breakpoints": true
     }
   ]
 }

@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "next dev -H 127.0.0.1 -p 3301",
     "build": "next build",
-    "deploy": "NEXT_DIST_DIR=.next-prod next build && node scripts/migrate.ts && pm2 startOrRestart ecosystem.config.cjs --only aura",
+    "deploy": "scripts/deploy.sh",
     "start": "next start -H 127.0.0.1 -p 3300",
     "set-password": "node scripts/set-password.ts",
     "db:generate": "drizzle-kit generate",
@@ -22,6 +22,7 @@
     "test:e2e": "scripts/e2e.sh"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.14.0",
     "drizzle-orm": "^0.45.4",
     "lucide-react": "^1.82.0",
     "next": "^16.4.6",

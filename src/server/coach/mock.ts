@@ -1,7 +1,5 @@
 import { setTimeout as sleep } from "node:timers/promises";
-
-/** What a coach is: text arriving in pieces, until done or aborted. */
-export type CoachReply = (message: string, signal: AbortSignal) => AsyncIterable<string>;
+import type { CoachReply } from "./types";
 
 export const MOCK_REPLY =
   "This is a canned mock reply. No coach is connected yet, and nothing here is " +
@@ -9,8 +7,8 @@ export const MOCK_REPLY =
   "looks and try the Stop button. Your message reached the server, but it was not " +
   "read, analysed or saved.";
 
-/** Stands in for Claude. Ignores the message. */
-export const mockReply: CoachReply = async function* (_message, signal) {
+/** Stands in for Claude when there is no API key, and in tests. Ignores the messages. */
+export const mockReply: CoachReply = async function* (_messages, signal) {
   for (const word of MOCK_REPLY.split(/(?<= )/)) {
     try {
       await sleep(80, undefined, { signal });

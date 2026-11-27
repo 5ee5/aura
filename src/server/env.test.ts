@@ -13,6 +13,7 @@ describe("parseEnv", () => {
     expect(parseEnv(valid)).toEqual({
       ...valid,
       LOG_LEVEL: "info",
+      COACH_DAILY_BUDGET_USD: 2,
       NODE_ENV: "development",
     });
   });

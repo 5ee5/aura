@@ -14,4 +14,7 @@ export const E2E_ENV = {
   SESSION_SECRET: "e2e-session-secret-".padEnd(43, "x"),
   // Always set, so the test server can never fall back to the one in .env.
   DATABASE_URL: testDatabaseUrl(),
+  // Never call Claude from tests, even when .env holds a real key.
+  COACH_MOCK: "1",
+  ANTHROPIC_API_KEY: "",
 };

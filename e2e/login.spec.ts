@@ -101,6 +101,14 @@ test("streams a mock reply that can be stopped", async ({ page, context }) => {
   await expect(reply).toContainText("saved.", { timeout: 15_000 });
   await expect(stop).toBeHidden();
 
+  // Earlier turns go with the next message, the stopped part included.
+  const sent = page.waitForRequest("**/api/coach");
+  await box.fill("Third");
+  await box.press("Enter");
+  const roles = (await sent).postDataJSON().messages.map((m: { role: string }) => m.role);
+  expect(roles).toEqual(["user", "assistant", "user", "assistant", "user"]);
+  await expect(stop).toBeHidden({ timeout: 15_000 });
+
   // On a phone only the conversation scrolls, and the box clears the tabs.
   // The short height is roughly what is left with a keyboard open.
   // 320 is the narrowest phone the top bar has to fit.
@@ -118,7 +126,7 @@ test("streams a mock reply that can be stopped", async ({ page, context }) => {
 });
 
 test("refuses chat requests from signed-out visitors and other sites", async ({ request }) => {
-  const data = { message: "hi" };
+  const data = { messages: [{ role: "user", content: "hi" }] };
   const cookie = `${SESSION_COOKIE}=${createSessionToken(keys)}`;
   const post = (headers: Record<string, string>) => request.post("/api/coach", { data, headers });
 

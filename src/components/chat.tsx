@@ -2,6 +2,7 @@
 
 import { ArrowUp, Square } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { MAX_HISTORY, MAX_MESSAGE, MAX_MESSAGES } from "@/lib/chat-limits";
 
 interface Message {
   id: number;
@@ -11,12 +12,38 @@ interface Message {
   problem?: string;
 }
 
+interface Sent {
+  role: "user" | "assistant";
+  content: string;
+}
+
+/** A shortened reply: shown with its reason, and still part of the conversation. */
+class Shortened extends Error {}
+
+/** The earlier turns worth sending: no failed exchanges, no empty replies, newest first to fit. */
+function history(messages: Message[], next: string): Sent[] {
+  const sent: Sent[] = [];
+  for (const [index, message] of messages.entries()) {
+    if (message.from === "you") {
+      if (messages[index + 1]?.state !== "failed") sent.push({ role: "user", content: message.text });
+    } else if (message.state !== "failed" && message.text.trim()) {
+      sent.push({ role: "assistant", content: message.text });
+    }
+  }
+  sent.push({ role: "user", content: next });
+  const size = () => sent.reduce((n, m) => n + m.content.length, 0);
+  while (sent.length > 1 && (sent.length > MAX_MESSAGES || size() > MAX_HISTORY || sent[0]?.role !== "user")) {
+    sent.shift();
+  }
+  return sent;
+}
+
 /** Reads the reply stream, calling onText for each piece. */
-async function streamReply(message: string, signal: AbortSignal, onText: (text: string) => void) {
+async function streamReply(messages: Sent[], signal: AbortSignal, onText: (text: string) => void) {
   const response = await fetch("/api/coach", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message }),
+    body: JSON.stringify({ messages }),
     signal,
   });
   if (response.status === 401) throw new Error("You’ve been signed out. Reload to sign in.");
@@ -30,8 +57,14 @@ async function streamReply(message: string, signal: AbortSignal, onText: (text: 
     const events = (buffer + value).split("\n\n");
     buffer = events.pop() ?? "";
     for (const event of events) {
-      const data = JSON.parse(event.slice("data: ".length)) as { text?: string; done?: true };
+      const data = JSON.parse(event.slice("data: ".length)) as {
+        text?: string;
+        done?: true;
+        error?: string;
+        keepReply?: boolean;
+      };
       if (data.done) return;
+      if (data.error) throw new (data.keepReply ? Shortened : Error)(data.error);
       onText(data.text ?? "");
     }
   }
@@ -39,7 +72,8 @@ async function streamReply(message: string, signal: AbortSignal, onText: (text: 
 }
 
 /** The conversation lives only in this component: nothing is saved yet. */
-export function Chat() {
+export function Chat({ mock }: { mock: boolean }) {
+  const replyLabel = mock ? "Mock reply" : "Coach";
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
   const [announcement, setAnnouncement] = useState("");
@@ -76,12 +110,12 @@ export function Chat() {
 
     let reply = "";
     try {
-      await streamReply(text, controller.signal, (piece) => {
+      await streamReply(history(messages, text), controller.signal, (piece) => {
         reply += piece;
         update((m) => ({ text: m.text + piece }));
       });
       update(() => ({ state: "done" }));
-      setAnnouncement(`Mock reply: ${reply}`);
+      setAnnouncement(`${replyLabel}: ${reply}`);
     } catch (error) {
       if (controller.signal.aborted) {
         update(() => ({ state: "stopped" }));
@@ -92,7 +126,7 @@ export function Chat() {
           error instanceof Error && !(error instanceof TypeError)
             ? error.message
             : "Can’t reach Aura. Check your connection and send again.";
-        update(() => ({ state: "failed", problem }));
+        update(() => ({ state: error instanceof Shortened ? "done" : "failed", problem }));
         setAnnouncement(problem);
       }
     }
@@ -127,9 +161,12 @@ export function Chat() {
             ) : (
               <li key={message.id} data-from="coach" className="break-words">
                 <p className="text-sm text-muted">
-                  Mock reply{message.state === "stopped" && ", stopped"}
+                  {replyLabel}
+                  {message.state === "stopped" && ", stopped"}
                 </p>
-                <p className="mt-1 whitespace-pre-wrap">{message.text || "…"}</p>
+                <p className="mt-1 whitespace-pre-wrap">
+                  {message.text || (message.state === "streaming" && "Thinking…")}
+                </p>
                 {message.problem && <p className="mt-1 text-danger">{message.problem}</p>}
               </li>
             ),
@@ -162,7 +199,7 @@ export function Chat() {
           aria-label="Message"
           placeholder="Message your coach"
           rows={2}
-          maxLength={4000}
+          maxLength={MAX_MESSAGE}
           className="min-w-0 flex-1 resize-none rounded-lg border border-line-strong bg-surface px-3 py-2"
         />
         {/* Keyed so that a click on Stop can never submit the form. */}

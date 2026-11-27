@@ -3,8 +3,10 @@
 A single-user AI running coach, self-hosted.
 
 **Today:** password login, a profile you can edit (preferences, availability,
-goals, personal bests, races, injuries) and a coach chat that returns a labelled
-**mock** reply. There is no AI, Garmin or calendar connection yet.
+goals, personal bests, races, injuries) and a coach chat with Claude. Without an
+API key the chat returns a labelled **mock** reply. The coach cannot read your
+profile yet, conversations are not saved, and there is no Garmin or calendar
+connection.
 
 ## Requirements
 
@@ -55,9 +57,20 @@ in the project folder, as one block:
     npm run set-password        # prompts; stores a hash and a session secret
     npm run db:migrate
 
+## The coach
+
+1. Create a key at console.anthropic.com and set a monthly spend limit there.
+   API use is billed separately from a Claude subscription.
+2. Put it in `.env` as `ANTHROPIC_API_KEY=...`, then `pm2 restart aura`.
+
+What you type is sent to Anthropic. `COACH_DAILY_BUDGET_USD` (default 2) caps
+what the app spends in any 24 hours, using its own estimate; stopped replies
+count at the most they could have cost. `npm run dev` uses the real key too; set
+`COACH_MOCK=1` to avoid spending.
+
 ## Run on the server
 
-    npm run deploy              # builds, migrates, starts or restarts pm2 app "aura"
+    npm run deploy              # builds, migrates, restarts pm2 app "aura" afresh
     pm2 save                    # saves the list of all pm2 apps, for reboots
     pm2 startup                 # once per machine; run the command it prints
 

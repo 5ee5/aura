@@ -3,6 +3,7 @@ import { sql } from "drizzle-orm";
 import {
   check,
   date,
+  index,
   integer,
   numeric,
   pgEnum,
@@ -32,6 +33,23 @@ const timestamps = {
     .$onUpdate(() => new Date()),
 };
 const seconds = (name: string) => numeric(name, { precision: 9, scale: 2, mode: "number" });
+
+/** One row per request to Claude, for the daily spending limit. */
+export const coachUsage = pgTable(
+  "coach_usage",
+  {
+    id: id(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    model: text().notNull(),
+    inputTokens: integer("input_tokens").notNull().default(0),
+    outputTokens: integer("output_tokens").notNull().default(0),
+    cacheReadTokens: integer("cache_read_tokens").notNull().default(0),
+    cacheWriteTokens: integer("cache_write_tokens").notNull().default(0),
+    /** Our estimate, not the bill. Starts at the most the request could cost. */
+    costUsd: numeric("cost_usd", { precision: 10, scale: 6, mode: "number" }).notNull(),
+  },
+  (t) => [index("coach_usage_created_at").on(t.createdAt)],
+);
 
 export const athletes = pgTable(
   "athletes",

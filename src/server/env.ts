@@ -10,6 +10,14 @@ const envSchema = z.object({
     .regex(PASSWORD_HASH_PATTERN, "Not set or malformed. Run: npm run set-password"),
   SESSION_SECRET: z.string().min(32, "At least 32 characters. Run: npm run set-password"),
   DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/, error: "Not a postgresql:// URL. See the README." }),
+  // Without a key the coach is a labelled mock.
+  ANTHROPIC_API_KEY: z.preprocess((value) => value || undefined, z.string().optional()),
+  /** "1" forces the mock even with a key, so tests can never spend money. */
+  COACH_MOCK: z.string().optional(),
+  COACH_DAILY_BUDGET_USD: z.preprocess(
+    (value) => value || undefined,
+    z.coerce.number("Enter dollars, for example 2.").positive().default(2),
+  ),
 });
 
 export type Env = z.infer<typeof envSchema>;

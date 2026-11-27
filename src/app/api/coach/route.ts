@@ -1,8 +1,21 @@
 import { z } from "zod";
+import { MAX_HISTORY, MAX_MESSAGE, MAX_MESSAGES, MAX_REPLY } from "@/lib/chat-limits";
 import { hasSession } from "@/server/auth/dal";
-import { mockReply } from "@/server/coach/mock";
+import { getCoach } from "@/server/coach";
+import { CoachError } from "@/server/coach/types";
 
-const bodySchema = z.object({ message: z.string().trim().min(1).max(4000) });
+const messageSchema = z.discriminatedUnion("role", [
+  z.object({ role: z.literal("user"), content: z.string().trim().min(1).max(MAX_MESSAGE) }),
+  z.object({ role: z.literal("assistant"), content: z.string().trim().min(1).max(MAX_REPLY) }),
+]);
+const bodySchema = z.object({
+  messages: z
+    .array(messageSchema)
+    .min(1)
+    .max(MAX_MESSAGES)
+    .refine((all) => all[0]?.role === "user" && all.at(-1)?.role === "user")
+    .refine((all) => all.reduce((n, m) => n + m.content.length, 0) <= MAX_HISTORY),
+});
 
 const refuse = (status: number, error: string) => Response.json({ error }, { status });
 
@@ -13,35 +26,45 @@ function fromThisSite(request: Request): boolean {
 }
 
 /**
- * Streams a reply as server-sent events: {"text"} pieces, then {"done"}.
- * A stream that ends without "done" was cut off.
+ * Streams a reply as server-sent events: {"text"} pieces, then {"done"} or
+ * {"error"}. A stream that ends with neither was cut off.
  */
 export async function POST(request: Request): Promise<Response> {
   if (!(await hasSession())) return refuse(401, "Unauthorized");
   if (!fromThisSite(request)) return refuse(403, "Forbidden");
 
   const body = bodySchema.safeParse(await request.json().catch(() => null));
-  if (!body.success) return refuse(400, "Send a message of 1 to 4000 characters.");
+  if (!body.success) return refuse(400, "That conversation is too long or empty. Reload to start again.");
 
   const abort = new AbortController();
   const signal = AbortSignal.any([request.signal, abort.signal]);
-  const reply = mockReply(body.data.message, signal)[Symbol.asyncIterator]();
+  signal.addEventListener("abort", () => console.log("Coach reply stopped"), { once: true });
+  const reply = getCoach().reply(body.data.messages, signal)[Symbol.asyncIterator]();
   const encoder = new TextEncoder();
   const event = (data: object) => encoder.encode(`data: ${JSON.stringify(data)}\n\n`);
+  let finished = false;
 
   const stream = new ReadableStream<Uint8Array>({
     async pull(controller) {
-      const next = await reply.next();
-      if (signal.aborted) return;
-      if (next.done) {
+      try {
+        const next = await reply.next();
+        if (signal.aborted) return;
+        if (!next.done) return controller.enqueue(event({ text: next.value }));
         controller.enqueue(event({ done: true }));
-        controller.close();
-      } else {
-        controller.enqueue(event({ text: next.value }));
+      } catch (error) {
+        if (signal.aborted) return;
+        if (!(error instanceof CoachError)) console.error("Coach failed:", (error as Error).name);
+        const message = error instanceof CoachError ? error.message : "The reply failed. Try again.";
+        const keepReply = error instanceof CoachError && error.keepReply;
+        controller.enqueue(event({ error: message, keepReply }));
       }
+      finished = true;
+      controller.close();
     },
     cancel() {
+      if (finished) return;
       abort.abort();
+      void reply.return?.();
     },
   });
 
