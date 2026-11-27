@@ -82,7 +82,27 @@ reloads itself when shown that way.
 `get_profile` takes no arguments and returns everything except the name. It is
 read only, called when advice needs it, and its result is not saved. A reply
 that uses it is two API requests, each counted against the daily limit, and at
-most three are made.
+most four are made.
+
+## Workouts are proposed, and only the athlete approves
+
+`propose_workout` saves a workout as "proposed" and shows it as a card under the
+reply. Approve and Decline are server actions; the coach has no tool that
+approves, changes or schedules anything. Steps live in `workout_steps`, with one
+level of repeats.
+
+Rules in `src/server/workouts/rules.ts` reject a proposal, whatever the prompt
+says: hard types (tempo, threshold, VO2max, hills, race-specific) while an
+injury has no end date, a date in the past, a rest day, or more minutes than
+that day allows (distance without a pace is timed at 6:00/km). Weekly volume and
+back-to-back hard days cannot be checked until there is training history.
+
+A proposal can name an earlier workout from the same chat that it revises. A
+revision of a workout still waiting for a decision replaces it at once, and
+declining the revision brings it back. An approved workout is replaced only when
+its revision is approved, so the Workouts page lists one version.
+
+Deleting a chat deletes its unapproved workouts; approved ones stay.
 
 ## Claude Sonnet 5.5 through the Messages API
 

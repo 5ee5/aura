@@ -3,10 +3,16 @@ import { asc, desc, eq } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { MAX_HISTORY, MAX_MESSAGES } from "../../lib/chat-limits";
 import { coachConversations, coachMessages } from "../db/schema";
+import { summarizeWorkout } from "../../lib/workout";
+import { deleteUnapproved, workoutsForMessages } from "../workouts/store";
 import type { ChatMessage } from "./types";
 
 type Row = typeof coachMessages.$inferSelect;
-type Turn = Pick<Row, "role" | "content" | "status"> & { mock?: boolean };
+type Turn = Pick<Row, "role" | "content" | "status"> & {
+  mock?: boolean;
+  /** Workout cards shown under this reply, as text. */
+  workouts?: string[];
+};
 export type Ending = Pick<Row, "content" | "status" | "problem"> & { usedProfile?: boolean };
 
 /**
@@ -20,7 +26,8 @@ export function buildHistory(turns: Turn[], next: string): ChatMessage[] {
     if (turn.mock) continue;
     const failed = turn.role === "user" ? turns[index + 1] : turn;
     if (failed?.role === "assistant" && failed.status === "failed") continue;
-    if (turn.content.trim()) sent.push({ role: turn.role, content: turn.content });
+    const content = [turn.content.trim(), ...(turn.workouts ?? [])].filter(Boolean).join("\n\n");
+    if (content) sent.push({ role: turn.role, content });
   }
   sent.push({ role: "user", content: next });
   let size = sent.reduce((n, m) => n + m.content.length, 0);
@@ -71,7 +78,10 @@ export function startExchange(
         .returning({ id: coachConversations.id });
       if (touched.length === 0) return undefined;
     }
-    const history = buildHistory(await messagesOf(tx, id), text);
+    const earlier = await messagesOf(tx, id);
+    const cards = await workoutsForMessages(tx, earlier.filter((m) => m.role === "assistant").map((m) => m.id));
+    const turns = earlier.map((m) => ({ ...m, workouts: cards.get(m.id)?.map(summarizeWorkout) }));
+    const history = buildHistory(turns, text);
     await tx.insert(coachMessages).values({ conversationId: id, role: "user", content: text, mock });
     const [reply] = await tx
       .insert(coachMessages)
@@ -93,6 +103,10 @@ export async function loadConversation(db: NodePgDatabase, id: number) {
   return found && { ...found, messages: await messagesOf(db, id) };
 }
 
+/** Approved workouts stay; ones still waiting or declined go with the chat. */
 export async function deleteConversation(db: NodePgDatabase, id: number) {
-  await db.delete(coachConversations).where(eq(coachConversations.id, id));
+  await db.transaction(async (tx) => {
+    await deleteUnapproved(tx, id);
+    await tx.delete(coachConversations).where(eq(coachConversations.id, id));
+  });
 }

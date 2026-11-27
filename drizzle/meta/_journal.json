@@ -36,6 +36,20 @@
       "when": 1795813716037,
       "tag": "0004_used_profile",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1795816409685,
+      "tag": "0005_planned_workouts",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1795817287339,
+      "tag": "0006_workout_revisions",
+      "breakpoints": true
     }
   ]
 }

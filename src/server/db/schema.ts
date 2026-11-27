@@ -1,5 +1,6 @@
 // Athlete tables. Loaded by drizzle-kit as well as the app: no "@/" imports.
 import { sql } from "drizzle-orm";
+import { STEP_KINDS, WORKOUT_TYPE_KEYS } from "../../lib/workout";
 import {
   boolean,
   check,
@@ -14,12 +15,16 @@ import {
   timestamp,
   unique,
   uniqueIndex,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 
 /** Where a number came from. Every table holding metrics carries one. */
 export const dataSource = pgEnum("data_source", ["reported", "measured", "calculated", "estimated"]);
 export const goalStatus = pgEnum("goal_status", ["active", "achieved", "abandoned"]);
 export const surface = pgEnum("surface", ["road", "trail", "track"]);
+export const workoutType = pgEnum("workout_type", WORKOUT_TYPE_KEYS);
+export const workoutStatus = pgEnum("workout_status", ["proposed", "approved", "declined", "replaced"]);
+export const stepKind = pgEnum("step_kind", STEP_KINDS);
 export const messageRole = pgEnum("message_role", ["user", "assistant"]);
 /** "streaming" left behind by a restart counts as stopped. */
 export const messageStatus = pgEnum("message_status", [
@@ -70,6 +75,65 @@ export const coachMessages = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("coach_messages_conversation").on(t.conversationId, t.id)],
+);
+
+/** Proposed by the coach; only the athlete approves. */
+export const plannedWorkouts = pgTable(
+  "planned_workouts",
+  {
+    id: id(),
+    title: text().notNull(),
+    type: workoutType().notNull(),
+    scheduledOn: date("scheduled_on"),
+    description: text().notNull(),
+    status: workoutStatus().notNull().default("proposed"),
+    conversationId: integer("conversation_id").references(() => coachConversations.id, {
+      onDelete: "set null",
+    }),
+    /** The reply that proposed it, where its card is shown. */
+    messageId: integer("message_id").references(() => coachMessages.id, { onDelete: "set null" }),
+    mock: boolean().notNull().default(false),
+    /** The earlier workout this one revises. */
+    replacesId: integer("replaces_id").references((): AnyPgColumn => plannedWorkouts.id, {
+      onDelete: "set null",
+    }),
+    ...timestamps,
+  },
+  (t) => [index("planned_workouts_message").on(t.messageId), index("planned_workouts_status").on(t.status)],
+);
+
+export const workoutSteps = pgTable(
+  "workout_steps",
+  {
+    id: id(),
+    workoutId: integer("workout_id")
+      .notNull()
+      .references(() => plannedWorkouts.id, { onDelete: "cascade" }),
+    /** Set for a step inside a repeat. */
+    parentId: integer("parent_id").references((): AnyPgColumn => workoutSteps.id, { onDelete: "cascade" }),
+    position: smallint().notNull(),
+    kind: stepKind().notNull(),
+    repeatCount: smallint("repeat_count"),
+    durationSeconds: integer("duration_s"),
+    distanceMetres: integer("distance_m"),
+    /** Seconds per kilometre. */
+    paceFastest: smallint("pace_fastest_s_per_km"),
+    paceSlowest: smallint("pace_slowest_s_per_km"),
+    heartRateMin: smallint("hr_min"),
+    heartRateMax: smallint("hr_max"),
+    intensity: text(),
+    instructions: text(),
+  },
+  (t) => [
+    index("workout_steps_workout").on(t.workoutId),
+    check(
+      "workout_steps_shape",
+      sql`case when ${t.kind} = 'repeat'
+        then ${t.repeatCount} between 2 and 50 and ${t.durationSeconds} is null and ${t.distanceMetres} is null
+        else ${t.repeatCount} is null and (${t.durationSeconds} is null) <> (${t.distanceMetres} is null) end`,
+    ),
+    check("workout_steps_amount_positive", sql`${t.durationSeconds} > 0 and ${t.distanceMetres} > 0`),
+  ],
 );
 
 /** One row per request to Claude, for the daily spending limit. */

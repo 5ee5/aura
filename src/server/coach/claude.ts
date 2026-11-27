@@ -1,13 +1,15 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { localToday } from "../../lib/dates";
+import { PROPOSE_WORKOUT_TOOL } from "../workouts/proposal";
 import { SYSTEM_PROMPT } from "./prompt";
-import { CoachError, type CoachReply } from "./types";
+import { CoachError, type CoachReply, type CoachTools, type ToolOutcome } from "./types";
 import { costUsd, type Ledger, type Tokens } from "./usage";
 
 export const MODEL = "claude-sonnet-5-5";
 const MAX_TOKENS = 8000;
 const NOTHING: Tokens = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
-/** API requests in one reply: each tool call costs another. */
-const MAX_REQUESTS = 3;
+/** API requests in one reply: each round of tool calls costs another. */
+const MAX_REQUESTS = 4;
 
 const TOOLS: Anthropic.Beta.BetaTool[] = [
   {
@@ -19,6 +21,7 @@ const TOOLS: Anthropic.Beta.BetaTool[] = [
     strict: true,
     input_schema: { type: "object", properties: {}, required: [], additionalProperties: false },
   },
+  PROPOSE_WORKOUT_TOOL as unknown as Anthropic.Beta.BetaTool,
 ];
 
 /**
@@ -83,11 +86,7 @@ function echo(content: Message["content"]): Message["content"] {
   );
 }
 
-export function claudeReply(
-  client: Anthropic,
-  ledger: Ledger,
-  readProfile: () => Promise<string>,
-): CoachReply {
+export function claudeReply(client: Anthropic, ledger: Ledger): CoachReply {
   /** One API request: yields its text and returns the finished message. */
   async function* request(
     system: Anthropic.Beta.BetaTextBlockParam[],
@@ -144,21 +143,22 @@ export function claudeReply(
     }
   }
 
-  async function run(name: string): Promise<{ content: string; is_error?: boolean }> {
-    if (name !== "get_profile") return { content: "There is no such tool.", is_error: true };
+  async function run(block: Anthropic.Beta.BetaToolUseBlock, tools?: CoachTools): Promise<ToolOutcome> {
     try {
-      return { content: await readProfile() };
+      if (tools && block.name === "get_profile") return { content: await tools.readProfile() };
+      if (tools && block.name === "propose_workout") return await tools.proposeWorkout(block.input);
+      return { content: "That tool is not available.", is_error: true };
     } catch (error) {
-      console.error("Coach could not read the profile:", (error as Error).name);
-      return { content: "The profile could not be read just now.", is_error: true };
+      console.error(`Coach tool ${block.name} failed:`, (error as Error).name);
+      return { content: "That did not work just now. Do not try again in this reply.", is_error: true };
     }
   }
 
-  return async function* (history, signal, notes) {
+  return async function* (history, signal, tools) {
     // Built once: nothing already sent may change between requests.
     const system: Anthropic.Beta.BetaTextBlockParam[] = [
       { type: "text", text: SYSTEM_PROMPT },
-      { type: "text", text: `Today is ${new Date().toISOString().slice(0, 10)}.` },
+      { type: "text", text: `Today is ${localToday()}.` },
     ];
     const messages: Params[] = [...history];
     let wrote = false;
@@ -184,15 +184,14 @@ export function claudeReply(
       }
       if (final.stop_reason !== "tool_use") return;
       if (sent === MAX_REQUESTS) {
-        throw new CoachError("The coach kept reading without answering. Try again.");
+        throw new CoachError("The coach kept using its tools without answering. Try again.");
       }
 
       const content = echo(final.content);
       const results: Anthropic.Beta.BetaToolResultBlockParam[] = [];
       for (const block of content) {
         if (block.type !== "tool_use" || signal.aborted) continue;
-        notes?.readProfile();
-        results.push({ type: "tool_result", tool_use_id: block.id, ...(await run(block.name)) });
+        results.push({ type: "tool_result", tool_use_id: block.id, ...(await run(block, tools)) });
       }
       messages.push({ role: "assistant", content }, { role: "user", content: results });
     }

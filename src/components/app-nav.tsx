@@ -1,12 +1,13 @@
 "use client";
 
-import { MessageSquare, UserRound } from "lucide-react";
+import { Footprints, MessageSquare, UserRound } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 // Add a section here only once its page exists.
 const SECTIONS = [
   { href: "/", label: "Coach", Icon: MessageSquare },
+  { href: "/workouts", label: "Workouts", Icon: Footprints },
   { href: "/profile", label: "Profile", Icon: UserRound },
 ] as const;
 
@@ -25,9 +26,10 @@ export function AppNav() {
             <Link
               href={href}
               aria-current={pathname === href ? "page" : undefined}
-              className="flex h-full items-center gap-2 border-b-2 border-transparent px-3 text-sm text-muted -outline-offset-2 hover:text-foreground aria-[current=page]:border-accent aria-[current=page]:text-foreground md:h-10 md:gap-3 md:border-b-0 md:border-l-2 md:px-4"
+              className="flex h-full items-center gap-2 border-b-2 border-transparent px-3 max-[400px]:px-2 text-sm text-muted -outline-offset-2 hover:text-foreground aria-[current=page]:border-accent aria-[current=page]:text-foreground md:h-10 md:gap-3 md:border-b-0 md:border-l-2 md:px-4"
             >
-              <Icon aria-hidden className="size-5" />
+              {/* Words only on the narrowest phones, so three fit. */}
+              <Icon aria-hidden className="size-5 max-[400px]:hidden" />
               {label}
             </Link>
           </li>

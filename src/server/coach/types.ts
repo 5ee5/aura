@@ -3,16 +3,22 @@ export interface ChatMessage {
   content: string;
 }
 
-/** Told about anything the reply reads, so the athlete can be shown. */
-export interface ReplyNotes {
-  readProfile(): void;
+export interface ToolOutcome {
+  content: string;
+  is_error?: boolean;
+}
+
+/** What the coach can do during a reply; each call is shown to the athlete. */
+export interface CoachTools {
+  readProfile(): Promise<string>;
+  proposeWorkout(input: unknown): Promise<ToolOutcome>;
 }
 
 /** What a coach is: the reply to a conversation, in pieces, until done or aborted. */
 export type CoachReply = (
   messages: ChatMessage[],
   signal: AbortSignal,
-  notes?: ReplyNotes,
+  tools?: CoachTools,
 ) => AsyncIterable<string>;
 
 /** A failure whose message is safe and useful to show in the chat. */

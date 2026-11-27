@@ -11,7 +11,7 @@
 
 ## Later phases
 
-2. Claude streaming chat, conversation persistence, workout generation, Workout Studio
+2. Claude streaming chat, conversation persistence, workout proposals (done); Workout Studio
 3. Training calendar, plans, scheduling, analytics
 4. Garmin (starting with a probe of what the key returns), Google Calendar, sync
 5. Adaptive recommendations, recovery analysis, race preparation

@@ -5,7 +5,8 @@ A single-user AI running coach, self-hosted.
 **Today:** password login, a profile you can edit (preferences, availability,
 goals, personal bests, races, injuries) and a coach chat with Claude. Without an
 API key the chat returns a labelled **mock** reply. Chats are saved and can be
-reopened or deleted. The coach can read your profile but not change anything.
+reopened or deleted. The coach can read your profile, and propose workouts that
+you approve or decline; approved ones are listed under Workouts.
 There is no Garmin or calendar connection.
 
 ## Requirements

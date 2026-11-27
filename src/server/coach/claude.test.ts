@@ -38,6 +38,11 @@ function scripted(turns: Turn[], fail?: Error) {
 
 const fakeClient = (pieces: string[], stop?: string, fail?: Error) => scripted([{ pieces, stop }], fail);
 const profile = async () => "PROFILE";
+/** Tools for a reply: the profile reader can be swapped, proposals are recorded. */
+const toolsWith = (readProfile: () => Promise<string> = profile) => ({
+  readProfile,
+  proposeWorkout: vi.fn<(input: unknown) => Promise<{ content: string }>>(async () => ({ content: "SHOWN" })),
+});
 
 function fakeLedger() {
   const settled: Tokens[] = [];
@@ -69,7 +74,7 @@ describe("claudeReply", () => {
   it("streams text, sends the history and records what was used", async () => {
     const { client, stream } = fakeClient(["Run ", "easy."]);
     const { ledger, settled } = fakeLedger();
-    expect(await collect(claudeReply(client, ledger, profile)(ask, new AbortController().signal))).toBe("Run easy.");
+    expect(await collect(claudeReply(client, ledger)(ask, new AbortController().signal, toolsWith()))).toBe("Run easy.");
     expect(stream.mock.calls[0]?.[0]).toMatchObject({
       model: "claude-sonnet-5-5",
       messages: ask,
@@ -84,13 +89,13 @@ describe("claudeReply", () => {
     ["max_tokens", /length limit/],
   ])("explains a reply that ends with %s", async (reason, message) => {
     const { client } = fakeClient(["Part"], reason);
-    const reply = claudeReply(client, fakeLedger().ledger, profile)(ask, new AbortController().signal);
+    const reply = claudeReply(client, fakeLedger().ledger)(ask, new AbortController().signal, toolsWith());
     await expect(collect(reply)).rejects.toThrow(message);
   });
 
   it("marks only a shortened reply as worth keeping", async () => {
     for (const [reason, keep] of [["max_tokens", true], ["refusal", false]] as const) {
-      const reply = claudeReply(fakeClient(["Part"], reason).client, fakeLedger().ledger, profile);
+      const reply = claudeReply(fakeClient(["Part"], reason).client, fakeLedger().ledger);
       await expect(collect(reply(ask, new AbortController().signal))).rejects.toMatchObject({ keepReply: keep });
     }
   });
@@ -99,7 +104,7 @@ describe("claudeReply", () => {
     const { client, stream } = fakeClient(["one", "two"]);
     const { ledger, settled } = fakeLedger();
     const controller = new AbortController();
-    const reply = claudeReply(client, ledger, profile)(ask, controller.signal)[Symbol.asyncIterator]();
+    const reply = claudeReply(client, ledger)(ask, controller.signal, toolsWith())[Symbol.asyncIterator]();
     await reply.next();
     expect(stream.mock.calls[0]?.[1].signal).toBe(controller.signal);
     controller.abort();
@@ -112,7 +117,7 @@ describe("claudeReply", () => {
     const { client } = fakeClient([], "end_turn", rejected);
     const { ledger, settled } = fakeLedger();
     vi.spyOn(console, "error").mockImplementation(() => {});
-    const reply = claudeReply(client, ledger, profile)(ask, new AbortController().signal);
+    const reply = claudeReply(client, ledger)(ask, new AbortController().signal, toolsWith());
     await expect(collect(reply)).rejects.toThrow(/API key/);
     expect(settled).toEqual([{ input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }]);
   });
@@ -127,8 +132,8 @@ describe("claudeReply with the profile tool", () => {
     const first = { pieces: ["Let me look."], stop: "tool_use", content: [thinking, call] };
     const { client, stream } = scripted([first, { pieces: ["Rest today."] }]);
     const { ledger, settled, reserve } = fakeLedger();
-    const readProfile = vi.fn();
-    const reply = claudeReply(client, ledger, profile)(ask, signal(), { readProfile });
+    const readProfile = vi.fn(profile);
+    const reply = claudeReply(client, ledger)(ask, signal(), toolsWith(readProfile));
 
     expect(await collect(reply)).toBe("Let me look.\n\nRest today.");
     expect(readProfile).toHaveBeenCalledOnce();
@@ -152,23 +157,23 @@ describe("claudeReply with the profile tool", () => {
       controller.abort();
       return "PROFILE";
     };
-    await collect(claudeReply(client, ledger, stopping)(ask, controller.signal));
+    await collect(claudeReply(client, ledger)(ask, controller.signal, toolsWith(stopping)));
     expect(stream).toHaveBeenCalledOnce();
     expect(reserve).toHaveBeenCalledOnce();
   });
 
   it("stops after a few rounds", async () => {
     const { client, stream } = scripted([{ stop: "tool_use", content: [call] }]);
-    const reply = claudeReply(client, fakeLedger().ledger, profile)(ask, signal());
+    const reply = claudeReply(client, fakeLedger().ledger)(ask, signal(), toolsWith());
     await expect(collect(reply)).rejects.toThrow("without answering");
-    expect(stream).toHaveBeenCalledTimes(3);
+    expect(stream).toHaveBeenCalledTimes(4);
   });
 
   it("tells Claude when the profile cannot be read", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const { client, stream } = scripted([{ stop: "tool_use", content: [call] }, { pieces: ["ok"] }]);
     const broken = () => Promise.reject(new Error("db"));
-    await collect(claudeReply(client, fakeLedger().ledger, broken)(ask, signal()));
+    await collect(claudeReply(client, fakeLedger().ledger)(ask, signal(), toolsWith(broken)));
     expect(JSON.stringify(stream.mock.calls[1]?.[0].messages)).toContain('"is_error":true');
   });
 
@@ -176,7 +181,7 @@ describe("claudeReply with the profile tool", () => {
     const fallback = { type: "fallback" };
     const mixed = [thinking, { ...call, id: "old" }, fallback, call];
     const first = scripted([{ stop: "tool_use", content: mixed }, { pieces: ["ok"] }]);
-    await collect(claudeReply(first.client, fakeLedger().ledger, profile)(ask, signal()));
+    await collect(claudeReply(first.client, fakeLedger().ledger)(ask, signal(), toolsWith()));
     expect(first.stream.mock.calls[1]?.[0].messages.at(-2)).toEqual({
       role: "assistant",
       content: [fallback, call],
@@ -185,9 +190,26 @@ describe("claudeReply with the profile tool", () => {
     const read = vi.fn(profile);
     const refused = scripted([{ stop: "refusal", content: [call] }]);
     await expect(
-      collect(claudeReply(refused.client, fakeLedger().ledger, read)(ask, signal())),
+      collect(claudeReply(refused.client, fakeLedger().ledger)(ask, signal(), toolsWith(read))),
     ).rejects.toThrow("declined");
     expect(read).not.toHaveBeenCalled();
+  });
+});
+
+describe("claudeReply proposing a workout", () => {
+  it("passes the proposal to the app and Claude the outcome", async () => {
+    const input = { title: "Easy 5K" };
+    const call = { type: "tool_use", id: "toolu_2", name: "propose_workout", input };
+    const { client, stream } = scripted([{ stop: "tool_use", content: [call] }, { pieces: ["Here it is."] }]);
+    const tools = toolsWith();
+    await collect(claudeReply(client, fakeLedger().ledger)(ask, new AbortController().signal, tools));
+    expect(tools.proposeWorkout).toHaveBeenCalledWith(input);
+    expect(stream.mock.calls[1]?.[0].messages.at(-1)).toEqual({
+      role: "user",
+      content: [{ type: "tool_result", tool_use_id: "toolu_2", content: "SHOWN" }],
+    });
+    const sent = stream.mock.calls[0]?.[0] as unknown as { tools: { name: string }[] };
+    expect(sent.tools.map((tool) => tool.name)).toEqual(["get_profile", "propose_workout"]);
   });
 });
 

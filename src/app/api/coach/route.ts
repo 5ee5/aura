@@ -1,10 +1,15 @@
 import { z } from "zod";
 import { MAX_MESSAGE } from "@/lib/chat-limits";
+import { localToday } from "@/lib/dates";
 import { hasSession } from "@/server/auth/dal";
 import { getCoach } from "@/server/coach";
 import { type Ending, finishReply, startExchange } from "@/server/coach/conversations";
-import { CoachError } from "@/server/coach/types";
+import { describeProfile } from "@/server/coach/profile-summary";
+import { CoachError, type CoachTools } from "@/server/coach/types";
 import { getDb } from "@/server/db/client";
+import { getProfile } from "@/server/profile/data";
+import { proposeWorkout } from "@/server/workouts/propose";
+import { limitsFrom } from "@/server/workouts/rules";
 
 const bodySchema = z.object({
   conversationId: z.number().int().positive().max(2_147_483_647).optional(),
@@ -21,7 +26,7 @@ function fromThisSite(request: Request): boolean {
 
 /**
  * Takes one new message; earlier turns come from the database. Streams
- * server-sent events: {"conversation"}, then {"text"} pieces and {"readProfile"},
+ * server-sent events: {"conversation"}, then {"text"}, {"readProfile"} and {"workout"},
  * then {"done"} or {"error"}. A stream that ends with neither was cut off.
  */
 export async function POST(request: Request): Promise<Response> {
@@ -58,14 +63,24 @@ export async function POST(request: Request): Promise<Response> {
   else signal.addEventListener("abort", stopped, { once: true });
 
   let output: ReadableStreamDefaultController<Uint8Array> | undefined;
-  const reply = coach
-    .reply(exchange.history, signal, {
-      readProfile() {
-        usedProfile = true;
-        if (!signal.aborted) output?.enqueue(event({ readProfile: true }));
-      },
-    })
-    [Symbol.asyncIterator]();
+  const send = (data: object) => {
+    if (!signal.aborted) output?.enqueue(event(data));
+  };
+  const tools: CoachTools = {
+    async readProfile() {
+      usedProfile = true;
+      send({ readProfile: true });
+      return describeProfile(await getProfile());
+    },
+    async proposeWorkout(input) {
+      const link = { conversationId: exchange.conversationId, messageId: exchange.replyId, mock: coach.mock };
+      const limits = async () => limitsFrom(await getProfile());
+      const { outcome, workout, changes } = await proposeWorkout(db, input, limits, link, localToday());
+      if (workout) send({ workout, changes });
+      return outcome;
+    },
+  };
+  const reply = coach.reply(exchange.history, signal, tools)[Symbol.asyncIterator]();
   const encoder = new TextEncoder();
   const event = (data: object) => encoder.encode(`data: ${JSON.stringify(data)}\n\n`);
 

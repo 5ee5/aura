@@ -4,6 +4,8 @@ import { ArrowUp, Square } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { MAX_MESSAGE } from "@/lib/chat-limits";
+import type { StatusChange, Workout } from "@/lib/workout";
+import { WorkoutCard } from "./workout-card";
 
 export interface ChatEntry {
   id: number;
@@ -13,6 +15,7 @@ export interface ChatEntry {
   problem?: string;
   mock?: boolean;
   readProfile?: boolean;
+  workouts?: Workout[];
 }
 
 /** A shortened reply: shown with its reason, and still a reply. */
@@ -22,6 +25,7 @@ interface Handlers {
   onConversation: (id: number) => void;
   onText: (text: string) => void;
   onReadProfile: () => void;
+  onWorkout: (workout: Workout, changes: StatusChange[]) => void;
 }
 
 /** Sends one message and reads the reply stream. */
@@ -48,6 +52,8 @@ async function streamReply(body: object, signal: AbortSignal, handlers: Handlers
         conversation?: number;
         text?: string;
         readProfile?: true;
+        workout?: Workout;
+        changes?: StatusChange[];
         done?: true;
         error?: string;
         keepReply?: boolean;
@@ -57,6 +63,7 @@ async function streamReply(body: object, signal: AbortSignal, handlers: Handlers
       if (data.conversation) handlers.onConversation(data.conversation);
       if (data.text) handlers.onText(data.text);
       if (data.readProfile) handlers.onReadProfile();
+      if (data.workout) handlers.onWorkout(data.workout, data.changes ?? []);
     }
   }
   throw new Error("The reply was cut off. Send your message again.");
@@ -90,6 +97,18 @@ export function Chat({ load, conversationId, saved, mock }: Props) {
   // Negative, so they never collide with saved messages' ids.
   const nextId = useRef(-1);
   const busy = messages.at(-1)?.state === "streaming";
+
+  /** Other cards in this chat whose status a decision or revision changed. */
+  function applyChanges(changes: StatusChange[]) {
+    const next = new Map(changes.map((change) => [change.id, change.status]));
+    setMessages((all) =>
+      all.map((m) =>
+        m.workouts?.some((w) => next.has(w.id))
+          ? { ...m, workouts: m.workouts.map((w) => ({ ...w, status: next.get(w.id) ?? w.status })) }
+          : m,
+      ),
+    );
+  }
 
   useEffect(() => () => active.current?.abort(), []);
 
@@ -134,6 +153,10 @@ export function Chat({ load, conversationId, saved, mock }: Props) {
           update((m) => ({ text: m.text + piece }));
         },
         onReadProfile: () => update(() => ({ readProfile: true })),
+        onWorkout(workout, changes) {
+          applyChanges(changes);
+          update((m) => ({ workouts: [...(m.workouts ?? []), workout] }));
+        },
       });
       update(() => ({ state: "done" }));
       setAnnouncement(`${replyLabel(mock)}: ${reply}`);
@@ -187,8 +210,12 @@ export function Chat({ load, conversationId, saved, mock }: Props) {
                   {message.state === "stopped" && ", stopped"}
                 </p>
                 <p className="mt-1 whitespace-pre-wrap">
-                  {message.text || (message.state === "streaming" && "Thinking…")}
+                  {message.text || (message.state === "streaming" && !message.workouts?.length && "Thinking…")}
                 </p>
+                {message.workouts?.map((workout) => (
+                  // Keyed by status too, so a change made elsewhere redraws the card.
+                  <WorkoutCard key={`${workout.id}:${workout.status}`} workout={workout} onChanges={applyChanges} />
+                ))}
                 {message.problem && <p className="mt-1 text-danger">{message.problem}</p>}
               </li>
             ),

@@ -29,7 +29,9 @@ describe("migrations", () => {
       "goals",
       "injuries",
       "personal_bests",
+      "planned_workouts",
       "race_results",
+      "workout_steps",
     ]);
   });
 

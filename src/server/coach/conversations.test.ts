@@ -43,6 +43,18 @@ describe("buildHistory", () => {
     ]);
   });
 
+  it("tells the coach about workout cards, even under an empty reply", () => {
+    const card = "[Workout card: easy]";
+    const turns = [user("plan"), { ...reply(""), workouts: [card] }, user("ok"), { ...reply("Done"), workouts: [card] }];
+    expect(store.buildHistory(turns, "shorter?").map((m) => m.content)).toEqual([
+      "plan",
+      card,
+      "ok",
+      `Done\n\n${card}`,
+      "shorter?",
+    ]);
+  });
+
   it("drops the oldest turns to fit and still starts with the athlete", () => {
     const turns = Array.from({ length: 40 }, (_, i) => (i % 2 ? reply(`r${i}`) : user(`u${i}`)));
     const sent = store.buildHistory(turns, "now");

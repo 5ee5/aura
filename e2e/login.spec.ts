@@ -50,7 +50,7 @@ test("refuses unauthenticated, tampered and expired requests", async ({ request 
 
   for (const token of [undefined, expired, tampered]) {
     const headers = token ? { cookie: `${SESSION_COOKIE}=${token}` } : undefined;
-    for (const path of ["/", "/?c=1", "/chats", "/profile", "/anything", "/page.png"]) {
+    for (const path of ["/", "/?c=1", "/chats", "/workouts", "/profile", "/anything", "/page.png"]) {
       const response = await request.get(path, { headers, maxRedirects: 0 });
       expect(response.status()).toBe(307);
       expect(response.headers().location).toBe("/login");
