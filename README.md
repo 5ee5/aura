@@ -82,8 +82,10 @@ count at the most they could have cost. `npm run dev` uses the real key too; set
 1. In Garmin Connect, open Profile & Account, Settings, Personal API Key. Choose
    the longest expiry (one year); the key is shown once.
 2. Put it in `.env` as `GARMIN_API_KEY=...`, then `pm2 restart aura`.
-3. Press Sync now on the Calendar, or Sync from Garmin on the Profile page.
-   Sync is manual for now.
+3. The live app syncs every 2 hours from 06:00 to 23:00 (server time). To sync
+   at once, press Sync now on the Calendar or Sync from Garmin on the Profile
+   page. `GARMIN_AUTO_SYNC=0` turns the timer off; `npm run dev` never syncs on
+   its own.
 
 A sync reads your activity list, heart-rate zones and the last 90 days of VO2
 max. Every activity is stored with its type, start, distance, time, elevation,

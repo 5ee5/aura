@@ -32,8 +32,7 @@ replaces them, after everything has been fetched, in one transaction. They are
 the only bests shown or sent to the coach; the form for typing bests in was
 removed and the typed-in rows deleted on 2026-11-28. Race results are still
 typed in. One snapshot row holds heart rate, zones and
-VO2 max. Sync is manual for now; sleep, HRV and daily data wait for recovery
-analysis.
+VO2 max. Sleep, HRV and daily data wait for recovery analysis.
 
 ## Self-hosted with pm2, published through Cloudflare Tunnel
 
@@ -203,8 +202,19 @@ analytics, and to the coach per day and as weekly time by sport, labelled as
 training stress rather than running.
 
 Garmin's training load is missing on most older runs, so the coach gets it per
-run where present and as a weekly total over those runs. Sync is still manual,
-from the Profile page or the Calendar.
+run where present and as a weekly total over those runs.
+
+## Garmin syncs on a timer inside the app
+
+`src/instrumentation.ts` starts a timer when the production server starts; no
+cron job or second service is needed, since one pm2 process serves the app. It
+checks every ten minutes and syncs when the local hour is 06 to 22 and the last
+attempt, failed or not, was two hours ago or more, so an expired key is tried
+again only at the next slot. The button and the timer share one runner and
+never sync at once. The last attempt is kept in memory and shown on the
+Calendar; after a restart the timer goes by the last successful sync in the
+database. Development and tests never start it, and `GARMIN_AUTO_SYNC=0` turns
+it off.
 
 ## Claude Sonnet 5.5 through the Messages API
 

@@ -13,5 +13,5 @@
 
 2. Claude streaming chat, conversation persistence, workout proposals, Workout Studio (done)
 3. Training calendar, plans, scheduling, planned-versus-done analytics (done)
-4. Garmin (bests, heart rate, zones, VO2 max and runs done; automatic sync next), Google Calendar
+4. Garmin (bests, heart rate, zones, VO2 max, all activities and automatic sync done), Google Calendar
 5. Adaptive recommendations, recovery analysis, race preparation

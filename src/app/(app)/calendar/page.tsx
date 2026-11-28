@@ -10,6 +10,8 @@ import { lastGarminSync } from "@/server/activities/store";
 import { requireSession } from "@/server/auth/dal";
 import { getDb } from "@/server/db/client";
 import { getEnv } from "@/server/env";
+import { autoSyncEnabled } from "@/server/garmin/auto-sync";
+import { lastAttempt } from "@/server/garmin/run";
 import { calendarDays, type Day } from "@/server/calendar/data";
 import { CalendarEntry } from "./entry";
 
@@ -209,7 +211,7 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
         </div>
       </nav>
 
-      {getEnv().GARMIN_API_KEY && <GarminSync lastSync={lastSync} />}
+      {getEnv().GARMIN_API_KEY && <GarminSync lastSync={lastSync} auto={autoSyncEnabled()} error={lastAttempt()?.error} />}
 
       {blocks.length > 0 && (
         <ul aria-label="Training blocks" className="mt-3 flex flex-col gap-1">
