@@ -53,6 +53,7 @@ describe("weeklySummary", () => {
       unmarked: 1,
       hardShare: 50 / 210,
       ran: { runs: 0, km: 0, minutes: 0, load: 0, runsWithLoad: 0 },
+      other: [],
     });
     expect(next).toMatchObject({ plannedMinutes: 30, unmarked: 0 });
     expect(consistency([week!, next!])).toBeCloseTo(1 / 3);
@@ -67,5 +68,18 @@ describe("weeklySummary", () => {
     const [week] = weeklySummary(list, ["2026-11-23"], "2026-11-28", matches, [run, extra]);
     expect(week).toMatchObject({ done: 1, doneMinutes: 40, unmarked: 1 });
     expect(week!.ran).toEqual({ runs: 2, km: 13.3, minutes: 75, load: 60, runsWithLoad: 1 });
+  });
+
+  it("adds up other sports apart from runs, most time first", () => {
+    const activity = (id: number, type: string, minutes: number) => ({
+      id, on: "2026-11-24", type, startLocal: "2026-11-24 12:00:00", distanceMetres: null, durationSeconds: minutes * 60, averageHeartRate: null, trainingLoad: null,
+    });
+    const others = [activity(1, "walking", 30), activity(2, "cycling", 90), activity(3, "walking", 40), activity(4, "cycling", 200)];
+    const [week, next] = weeklySummary([], ["2026-11-23", "2026-11-30"], "2026-11-28", new Map(), [], others);
+    expect(week!.other).toEqual([
+      { type: "cycling", sessions: 2, minutes: 290 },
+      { type: "walking", sessions: 2, minutes: 70 },
+    ]);
+    expect(next!.other).toEqual([]);
   });
 });

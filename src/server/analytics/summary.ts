@@ -1,6 +1,6 @@
 // Planned against done, week by week. Run in tests too: relative imports only.
 import { addDays } from "../../lib/dates";
-import { runTotals, type Match, type Run, type RunTotals } from "../../lib/runs";
+import { otherTotals, runTotals, type Activity, type Match, type Run, type RunTotals } from "../../lib/runs";
 import { HARD_TYPES, type Workout, estimateMinutes } from "../../lib/workout";
 
 export interface WeekSummary {
@@ -15,6 +15,8 @@ export interface WeekSummary {
   hardShare: number | null;
   /** What Garmin recorded, planned or not. Kept apart from the estimates above. */
   ran: RunTotals;
+  /** Every other sport Garmin recorded, by sport, most time first. */
+  other: ReturnType<typeof otherTotals>;
 }
 
 /**
@@ -27,6 +29,7 @@ export function weeklySummary(
   today: string,
   matches: Map<number, Match> = new Map(),
   runs: Run[] = [],
+  others: Activity[] = [],
 ): WeekSummary[] {
   const outcome = (w: Workout) => (matches.has(w.id) ? matches.get(w.id)!.outcome : w.outcome);
   return mondays.map((monday) => {
@@ -43,6 +46,7 @@ export function weeklySummary(
       unmarked: week.filter((w) => !outcome(w) && w.scheduledOn! < today).length,
       hardShare: planned ? minutes(week.filter((w) => HARD_TYPES.includes(w.type))) / planned : null,
       ran: runTotals(runs.filter((r) => r.on >= monday && r.on <= sunday)),
+      other: otherTotals(others.filter((a) => a.on >= monday && a.on <= sunday)),
     };
   });
 }

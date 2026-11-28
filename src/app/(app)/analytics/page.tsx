@@ -3,6 +3,7 @@ import Link from "next/link";
 import { addDays, formatDate, localToday, startOfWeek } from "@/lib/dates";
 import { requireSession } from "@/server/auth/dal";
 import { consistency, weeklySummary } from "@/server/analytics/summary";
+import { activityLabel } from "@/lib/runs";
 import { plannedAndRun } from "@/server/calendar/data";
 
 export const metadata: Metadata = { title: "Analytics" };
@@ -26,8 +27,8 @@ export default async function AnalyticsPage() {
   const today = localToday();
   const thisWeek = startOfWeek(today);
   const mondays = Array.from({ length: WEEKS }, (_, i) => addDays(thisWeek, (i - WEEKS + 1) * 7));
-  const { workouts, runs, matches } = await plannedAndRun(mondays[0]!, addDays(thisWeek, 6));
-  const weeks = weeklySummary(workouts, mondays, today, matches, runs);
+  const { workouts, runs, others, matches } = await plannedAndRun(mondays[0]!, addDays(thisWeek, 6));
+  const weeks = weeklySummary(workouts, mondays, today, matches, runs, others);
   const recent = weeks.slice(-4);
   const ranKm = Math.round(recent.reduce((n, w) => n + w.ran.km, 0) * 10) / 10;
   const ranRuns = recent.reduce((n, w) => n + w.ran.runs, 0);
@@ -44,7 +45,7 @@ export default async function AnalyticsPage() {
       <p className="mt-2 text-muted">
         Done and planned come from the workouts you approved: done when you marked it, or when Garmin
         recorded a run that day. Planned minutes are estimates from each workout’s steps. Ran is what
-        Garmin recorded, planned or not, as of the last sync.
+        Garmin recorded, planned or not, as of the last sync; Other is every other sport.
       </p>
 
       <dl className="mt-6 grid grid-cols-2 gap-3">
@@ -71,6 +72,7 @@ export default async function AnalyticsPage() {
             <th scope="col" className="py-2 pr-2 text-right font-normal">Done</th>
             <th scope="col" className="py-2 pr-2 text-right font-normal">Skipped</th>
             <th scope="col" className="py-2 pr-2 text-right font-normal">Ran</th>
+            <th scope="col" className="py-2 pr-2 text-right font-normal">Other</th>
             <th scope="col" className="py-2 text-right font-normal">Hard</th>
           </tr>
         </thead>
@@ -99,6 +101,14 @@ export default async function AnalyticsPage() {
                     {week.ran.runs} {week.ran.runs === 1 ? "run" : "runs"}, {hours(week.ran.minutes)}
                   </span>
                 )}
+              </td>
+              <td className="py-2 pr-2 text-right">
+                {week.other.length ? hours(week.other.reduce((n, s) => n + s.minutes, 0)) : "–"}
+                {week.other.map((sport) => (
+                  <span key={sport.type} className="block text-muted">
+                    {activityLabel(sport.type)} {hours(sport.minutes)}
+                  </span>
+                ))}
               </td>
               <td className="py-2 text-right">{percent(week.hardShare)}</td>
             </tr>

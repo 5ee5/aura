@@ -1,8 +1,9 @@
 import "server-only";
 import { addDays, isoWeekday } from "@/lib/dates";
-import { matchRuns, type Match, type Run } from "@/lib/runs";
+import { matchRuns, type Activity, type Match, type Run } from "@/lib/runs";
 import { HARD_TYPES, type Workout, estimateMinutes } from "@/lib/workout";
-import { runsBetween } from "@/server/activities/store";
+import { activitiesBetween } from "@/server/activities/store";
+import { isRunType } from "@/server/garmin/extract";
 import { getDb } from "@/server/db/client";
 import { blocksBetween } from "@/server/plans/store";
 import { getProfile } from "@/server/profile/data";
@@ -17,6 +18,8 @@ export interface Day {
   workouts: EntryWorkout[];
   /** Runs Garmin recorded that day that no planned workout took. */
   extraRuns: Run[];
+  /** Rides, walks, strength and every other sport Garmin recorded that day. */
+  others: Activity[];
 }
 
 /** A workout as the calendar shows it; with a match, done can come from a Garmin run. */
@@ -32,21 +35,23 @@ export const toEntry = (workout: Workout, match?: Match): EntryWorkout => ({
   hard: HARD_TYPES.includes(workout.type),
 });
 
-/** Approved workouts and runs between two dates, matched. */
+/** Approved workouts and activities between two dates, with runs matched to workouts. */
 export async function plannedAndRun(from: string, to: string) {
   const db = getDb();
-  const [workouts, runs] = await Promise.all([approvedBetween(db, from, to), runsBetween(db, from, to)]);
+  const [workouts, all] = await Promise.all([approvedBetween(db, from, to), activitiesBetween(db, from, to)]);
+  const runs = all.filter((a) => isRunType(a.type));
+  const others = all.filter((a) => !isRunType(a.type));
   const { matches, extras } = matchRuns(
     workouts.map((w) => ({ id: w.id, scheduledOn: w.scheduledOn, outcome: w.outcome, minutes: estimateMinutes(w.steps) })),
     runs,
   );
-  return { workouts, runs, matches, extras };
+  return { workouts, runs, others, matches, extras };
 }
 
 /** Every day from..to inclusive, with what is planned on it. */
 export async function calendarDays(from: string, to: string) {
   const db = getDb();
-  const [{ workouts, matches, extras }, unscheduled, profile, blocks] = await Promise.all([
+  const [{ workouts, matches, extras, others }, unscheduled, profile, blocks] = await Promise.all([
     plannedAndRun(from, to),
     unscheduledApproved(db),
     getProfile(),
@@ -67,6 +72,7 @@ export async function calendarDays(from: string, to: string) {
       races: races.filter((race) => race.date === date).map((race) => race.name),
       workouts: workouts.filter((w) => w.scheduledOn === date).map((w) => toEntry(w, matches.get(w.id))),
       extraRuns: extras.get(date) ?? [],
+      others: others.filter((a) => a.on === date),
     });
   }
   return { days, unscheduled: unscheduled.map((w) => toEntry(w)), blocks };

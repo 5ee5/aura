@@ -3,7 +3,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { addDays, addMonths, daysBetween, formatDate, isDate, localToday, monthWeeks, startOfWeek } from "@/lib/dates";
 import { BLOCK_FOCUSES } from "@/lib/plans";
-import { describeRun, type Run } from "@/lib/runs";
+import { activityLabel, describeRun, type Activity } from "@/lib/runs";
+import { isRunType } from "@/server/garmin/extract";
 import { GarminSync } from "@/components/garmin-sync";
 import { lastGarminSync } from "@/server/activities/store";
 import { requireSession } from "@/server/auth/dal";
@@ -31,22 +32,26 @@ function Badges({ day }: { day: Day }) {
   );
 }
 
-const runLabel = (run: Run) =>
-  `${run.type === "running" ? "Run" : run.type.replaceAll("_", " ").replace(/^./, (c) => c.toUpperCase())}: ${describeRun(run)}`;
+/** Runs no workout took, and every other sport, in the order they started. */
+const recorded = (day: Day) => [...day.extraRuns, ...day.others].sort((a, b) => a.startLocal.localeCompare(b.startLocal));
 
-function ExtraRuns({ runs }: { runs: Run[] }) {
-  if (runs.length === 0) return null;
+function Recorded({ activities }: { activities: Activity[] }) {
+  if (activities.length === 0) return null;
   return (
-    <ul className="mt-2 flex flex-col gap-1">
-      {runs.map((run) => (
-        <li key={run.id} className="rounded-lg border border-dashed border-line px-3 py-2 text-sm">
-          {runLabel(run)}
-          <span className="ml-2 text-muted">not planned</span>
+    <ul aria-label="Recorded by Garmin" className="mt-2 flex flex-col gap-1">
+      {activities.map((activity) => (
+        <li key={activity.id} className="rounded-lg border border-dashed border-line px-3 py-2 text-sm">
+          {activityLabel(activity.type)}: {describeRun(activity)}
+          {isRunType(activity.type) && <span className="ml-2 text-muted">not planned</span>}
         </li>
       ))}
     </ul>
   );
 }
+
+/** "Ride 25.3 km" or "Strength 45 min", for a month cell. */
+const short = (a: Activity) =>
+  `${activityLabel(a.type)} ${a.distanceMetres ? `${(a.distanceMetres / 1000).toFixed(1)} km` : `${Math.round(a.durationSeconds / 60)} min`}`;
 
 function WeekView({ days, today }: { days: Day[]; today: string }) {
   return (
@@ -68,9 +73,9 @@ function WeekView({ days, today }: { days: Day[]; today: string }) {
                 ))}
               </ul>
             ) : (
-              day.extraRuns.length === 0 && <p className="mt-1 text-sm text-muted">Nothing planned.</p>
+              <p className="mt-1 text-sm text-muted">Nothing planned.</p>
             )}
-            <ExtraRuns runs={day.extraRuns} />
+            <Recorded activities={recorded(day)} />
           </li>
         );
       })}
@@ -104,7 +109,7 @@ function MonthView({ days, month, today }: { days: Day[]; month: string; today: 
                     href={`/calendar?view=week&date=${day.date}`}
                     aria-label={`${formatDate(day.date, { weekday: "long", day: "numeric", month: "long" })}: ${
                       day.workouts.length ? day.workouts.map((w) => w.title).join(", ") : "nothing planned"
-                    }${day.extraRuns.length ? `, ${day.extraRuns.length} unplanned run${day.extraRuns.length > 1 ? "s" : ""}` : ""}${
+                    }${recorded(day).length ? `, recorded: ${recorded(day).map(short).join(", ")}` : ""}${
                       day.races.length ? `, race: ${day.races.join(", ")}` : ""
                     }`}
                     className="block h-full"
@@ -120,9 +125,9 @@ function MonthView({ days, month, today }: { days: Day[]; month: string; today: 
                           {w.title}
                         </span>
                       ))}
-                      {day.extraRuns.map((run) => (
-                        <span key={run.id} className="truncate text-muted">
-                          {run.distanceMetres ? `${(run.distanceMetres / 1000).toFixed(1)} km` : `${Math.round(run.durationSeconds / 60)} min`}
+                      {recorded(day).map((a) => (
+                        <span key={a.id} className="truncate text-muted">
+                          {short(a)}
                         </span>
                       ))}
                     </span>
@@ -130,8 +135,8 @@ function MonthView({ days, month, today }: { days: Day[]; month: string; today: 
                       {day.workouts.map((w) => (
                         <span key={w.id} className={`size-2 rounded-full ${w.outcome === "skipped" ? "bg-line-strong" : "bg-accent"}`} />
                       ))}
-                      {day.extraRuns.map((run) => (
-                        <span key={run.id} className="size-2 rounded-full border border-muted" />
+                      {recorded(day).map((a) => (
+                        <span key={a.id} className="size-2 rounded-full border border-muted" />
                       ))}
                     </span>
                   </Link>

@@ -179,7 +179,7 @@ keeps its row with status "cancelled". The coach cannot create plans.
 `/analytics` shows eight weeks of approved workouts: planned and done time,
 done and skipped counts, and the share of planned time in hard sessions, all
 estimated from workout steps. Beside it, and never added to it, is what Garmin
-recorded each week: runs, distance and time.
+recorded each week: runs, distance and time, and time in other sports.
 
 ## Garmin runs mark workouts done, without overwriting marks
 
@@ -196,6 +196,11 @@ deleting a run in Garmin needs no clean-up. A workout marked skipped takes no
 run. The calendar, analytics and the coach's `get_schedule` all use the same
 result. The coach gets each run's distance, time, heart rate and load, never its
 name or id.
+
+Other sports (rides, walks, strength and so on) never mark a workout done.
+They show on the calendar beside unplanned runs, as a separate Other column in
+analytics, and to the coach per day and as weekly time by sport, labelled as
+training stress rather than running.
 
 Garmin's training load is missing on most older runs, so the coach gets it per
 run where present and as a weekly total over those runs. Sync is still manual,

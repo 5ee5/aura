@@ -1,7 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import { addDays, daysBetween, isDate, isoWeekday, localToday, startOfWeek } from "@/lib/dates";
-import { runTotals, type Run } from "@/lib/runs";
+import { otherTotals, runTotals, type Run } from "@/lib/runs";
 import { WORKOUT_TYPES } from "@/lib/workout";
 import { getProfile } from "@/server/profile/data";
 export { GET_SCHEDULE_TOOL } from "./schedule-tool";
@@ -48,6 +48,10 @@ export async function describeSchedule(input: unknown): Promise<ToolOutcome> {
       ran: totals.runs
         ? { runs: totals.runs, km: totals.km, minutes: totals.minutes, trainingLoad: totals.runsWithLoad ? totals.load : undefined }
         : undefined,
+      otherSports: (() => {
+        const sports = otherTotals(week.flatMap((d) => d.others));
+        return sports.length ? sports.map((s) => ({ kind: s.type, sessions: s.sessions, minutes: s.minutes })) : undefined;
+      })(),
       days: week.map((d) => ({
         date: d.date,
         day: DAY[isoWeekday(d.date)],
@@ -65,6 +69,7 @@ export async function describeSchedule(input: unknown): Promise<ToolOutcome> {
           ran: w.run ? ran(w.run) : undefined,
         })),
         unplannedRuns: d.extraRuns.length ? d.extraRuns.map(ran) : undefined,
+        otherActivities: d.others.length ? d.others.map((a) => ({ ...ran(a), kind: a.type })) : undefined,
       })),
     });
   }
@@ -74,8 +79,9 @@ export async function describeSchedule(input: unknown): Promise<ToolOutcome> {
       note:
         "Only approved workouts are listed; their minutes are estimates. An outcome comes from the athlete's " +
         "mark, or is done because Garmin recorded a run that day (ran). unplannedRuns and ran totals are what " +
-        "the watch recorded, as of the last sync. kind is left out for ordinary outdoor runs. trainingLoad is " +
-        "Garmin's and missing on older runs.",
+        "the watch recorded, as of the last sync. kind is left out for ordinary outdoor runs. otherActivities " +
+        "and otherSports are other sports (rides, walks, strength and so on): count them as training stress, " +
+        "never as running. trainingLoad is Garmin's and missing on older activities.",
       plans: plans.map((p) => ({
         id: p.id,
         name: p.name,

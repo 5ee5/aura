@@ -1,6 +1,7 @@
 // Runs recorded by the watch, and how they line up with planned workouts.
 // Pure: used by the calendar, analytics and the coach alike.
 
+/** An activity Garmin recorded. Runs are the ones whose type isRunType accepts. */
 export interface Run {
   id: number;
   on: string;
@@ -80,6 +81,59 @@ export function runTotals(runs: Run[]): RunTotals {
     load: Math.round(withLoad.reduce((n, r) => n + r.trainingLoad!, 0)),
     runsWithLoad: withLoad.length,
   };
+}
+
+/** Activities of any sport. Same shape as a run. */
+export type Activity = Run;
+
+const LABELS: Record<string, string> = {
+  running: "Run",
+  trail_running: "Trail run",
+  treadmill_running: "Treadmill run",
+  indoor_running: "Indoor run",
+  track_running: "Track run",
+  cycling: "Ride",
+  road_biking: "Road ride",
+  mountain_biking: "Mountain bike ride",
+  gravel_cycling: "Gravel ride",
+  indoor_cycling: "Indoor ride",
+  virtual_ride: "Virtual ride",
+  walking: "Walk",
+  hiking: "Hike",
+  strength_training: "Strength",
+  lap_swimming: "Pool swim",
+  open_water_swimming: "Open-water swim",
+  indoor_rowing: "Indoor row",
+  rowing: "Row",
+  stair_climbing: "Stairs",
+  indoor_cardio: "Cardio",
+  hiit: "HIIT",
+  yoga: "Yoga",
+  pilates: "Pilates",
+  elliptical: "Elliptical",
+  other: "Other activity",
+};
+
+/** "Road ride" for road_biking; unknown keys are spelled out. */
+export function activityLabel(type: string): string {
+  return LABELS[type] ?? type.replaceAll("_", " ").replace(/^./, (c) => c.toUpperCase());
+}
+
+export interface SportTotals {
+  sessions: number;
+  minutes: number;
+}
+
+/** Time by sport, most time first. */
+export function otherTotals(activities: Activity[]): (SportTotals & { type: string })[] {
+  const totals = new Map<string, SportTotals>();
+  for (const a of activities) {
+    const t = totals.get(a.type) ?? { sessions: 0, minutes: 0 };
+    totals.set(a.type, { sessions: t.sessions + 1, minutes: t.minutes + a.durationSeconds / 60 });
+  }
+  return [...totals]
+    .map(([type, t]) => ({ type, sessions: t.sessions, minutes: Math.round(t.minutes) }))
+    .sort((a, b) => b.minutes - a.minutes);
 }
 
 /** "10.2 km, 55 min, 148 bpm" */
