@@ -2,6 +2,7 @@
 import { sql } from "drizzle-orm";
 import { STEP_KINDS, WORKOUT_TYPE_KEYS } from "../../lib/workout";
 import {
+  bigint,
   boolean,
   check,
   date,
@@ -222,6 +223,8 @@ export const personalBests = pgTable(
     timeSeconds: seconds("time_s").notNull(),
     achievedOn: date("achieved_on"),
     source: dataSource().notNull(),
+    /** Set on bests imported from Garmin (source "measured"): the run they came from. */
+    garminActivityId: bigint("garmin_activity_id", { mode: "number" }),
     ...timestamps,
   },
   (t) => [
@@ -346,3 +349,22 @@ export const changeProposals = pgTable("change_proposals", {
   mock: boolean().notNull().default(false),
   ...timestamps,
 });
+
+/** The latest numbers read from Garmin. One row, replaced on each sync. */
+export const garminSnapshots = pgTable(
+  "garmin_snapshots",
+  {
+    id: id(),
+    athleteId: athleteId(),
+    maxHeartRate: smallint("max_hr"),
+    restingHeartRate: smallint("resting_hr"),
+    lactateThresholdHeartRate: smallint("lactate_threshold_hr"),
+    /** Lower bounds of zones 1 to 5, in beats per minute. */
+    heartRateZones: jsonb("hr_zones").$type<number[]>(),
+    vo2Max: numeric("vo2_max", { precision: 4, scale: 1, mode: "number" }),
+    vo2MaxOn: date("vo2_max_on"),
+    runsRead: integer("runs_read").notNull(),
+    syncedAt: timestamp("synced_at", { withTimezone: true }).notNull(),
+  },
+  () => [uniqueIndex("garmin_snapshots_only_one").on(sql`(true)`)],
+);

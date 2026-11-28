@@ -27,6 +27,7 @@ describe("migrations", () => {
       "coach_conversations",
       "coach_messages",
       "coach_usage",
+      "garmin_snapshots",
       "goals",
       "injuries",
       "personal_bests",

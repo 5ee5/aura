@@ -6,9 +6,9 @@ import { z } from "zod";
 import type { FormState } from "@/components/action-form";
 import { requireSession } from "@/server/auth/dal";
 import { getDb } from "@/server/db/client";
-import { goals, injuries, personalBests, raceResults } from "@/server/db/schema";
+import { goals, injuries, raceResults } from "@/server/db/schema";
 import * as data from "./data";
-import { aboutSchema, bestSchema, goalSchema, injurySchema, parseWeek, parseWith, raceSchema } from "./validation";
+import { aboutSchema, goalSchema, injurySchema, parseWeek, parseWith, raceSchema } from "./validation";
 
 const idSchema = z.coerce.number().int().positive();
 const NO_ATHLETE = { error: "Save your name first." };
@@ -42,7 +42,7 @@ export async function saveWeek(_state: FormState, form: FormData): Promise<FormS
   return saved();
 }
 
-type EntryTable = typeof goals | typeof personalBests | typeof raceResults | typeof injuries;
+type EntryTable = typeof goals | typeof raceResults | typeof injuries;
 
 /** Adds an entry, or updates the one named by the form's "id". */
 async function saveEntry<T extends object>(
@@ -59,24 +59,17 @@ async function saveEntry<T extends object>(
   // The schema for each table was chosen by the caller, so the shapes match.
   const values = { ...entry.data, ...extra, athleteId: athlete.id } as never;
   const db = getDb();
-  try {
-    if (!form.has("id")) {
-      await db.insert(table).values(values);
-    } else {
-      const id = idSchema.safeParse(form.get("id"));
-      if (!id.success) return GONE;
-      const updated = await db
-        .update(table)
-        .set(values)
-        .where(and(eq(table.id, id.data), eq(table.athleteId, athlete.id)))
-        .returning({ id: table.id });
-      if (updated.length === 0) return GONE;
-    }
-  } catch (error) {
-    // 23505: unique violation. Only personal bests have such a rule.
-    const cause = (error as { cause?: { code?: string } }).cause;
-    if (cause?.code !== "23505") throw error;
-    return { error: "You already have a best for that distance. Edit that one instead." };
+  if (!form.has("id")) {
+    await db.insert(table).values(values);
+  } else {
+    const id = idSchema.safeParse(form.get("id"));
+    if (!id.success) return GONE;
+    const updated = await db
+      .update(table)
+      .set(values)
+      .where(and(eq(table.id, id.data), eq(table.athleteId, athlete.id)))
+      .returning({ id: table.id });
+    if (updated.length === 0) return GONE;
   }
   return saved();
 }
@@ -84,12 +77,6 @@ async function saveEntry<T extends object>(
 export async function saveGoal(_state: FormState, form: FormData) {
   await requireSession();
   return saveEntry(goals, goalSchema, form);
-}
-
-export async function saveBest(_state: FormState, form: FormData) {
-  await requireSession();
-  // Typed in by the athlete. The source is never taken from the form.
-  return saveEntry(personalBests, bestSchema, form, { source: "reported" });
 }
 
 export async function saveRace(_state: FormState, form: FormData) {
@@ -105,7 +92,7 @@ export async function saveInjury(_state: FormState, form: FormData) {
 export async function removeEntry(_state: FormState, form: FormData): Promise<FormState> {
   await requireSession();
   const target = z
-    .object({ kind: z.enum(["goal", "best", "race", "injury"]), id: idSchema })
+    .object({ kind: z.enum(["goal", "race", "injury"]), id: idSchema })
     .safeParse(fields(form));
   const athlete = await data.getAthlete();
   if (!target.success || !athlete) return GONE;

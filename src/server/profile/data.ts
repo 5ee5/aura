@@ -1,7 +1,15 @@
 import "server-only";
 import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { getDb } from "@/server/db/client";
-import { athletes, availability, goals, injuries, personalBests, raceResults } from "@/server/db/schema";
+import {
+  athletes,
+  availability,
+  garminSnapshots,
+  goals,
+  injuries,
+  personalBests,
+  raceResults,
+} from "@/server/db/schema";
 
 /** There is one athlete; the database allows no second row. */
 export async function getAthlete() {
@@ -13,7 +21,7 @@ export async function getProfile() {
   const athlete = await getAthlete();
   if (!athlete) return undefined;
   const db = getDb();
-  const [week, goalList, bests, races, injuryList] = await Promise.all([
+  const [week, goalList, allBests, races, injuryList, garminRows] = await Promise.all([
     db.select().from(availability).where(eq(availability.athleteId, athlete.id)),
     db
       .select()
@@ -36,8 +44,12 @@ export async function getProfile() {
       .where(eq(injuries.athleteId, athlete.id))
       // Current injuries (no end date) first.
       .orderBy(sql`${injuries.resolvedOn} is not null`, desc(injuries.startedOn)),
+    db.select().from(garminSnapshots).where(eq(garminSnapshots.athleteId, athlete.id)).limit(1),
   ]);
-  return { athlete, week, goals: goalList, bests, races, injuries: injuryList };
+  // Only Garmin's ("measured") bests are used. Bests typed in before Garmin sync stay
+  // in the table but are no longer shown or sent to the coach.
+  const garmin = { snapshot: garminRows[0], bests: allBests.filter((best) => best.source === "measured") };
+  return { athlete, week, goals: goalList, races, injuries: injuryList, garmin };
 }
 
 export async function saveAthlete(values: typeof athletes.$inferInsert) {
@@ -59,7 +71,6 @@ export async function replaceWeek(
 
 export const ENTRY_TABLES = {
   goal: goals,
-  best: personalBests,
   race: raceResults,
   injury: injuries,
 } as const;

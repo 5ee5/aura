@@ -19,8 +19,8 @@ const TOOLS: Anthropic.Beta.BetaTool[] = [
   {
     name: "get_profile",
     description:
-      "Read the athlete's profile: training preferences, weekly availability, goals, personal " +
-      "bests, race history and injuries. Call it before giving advice or a plan that depends on " +
+      "Read the athlete's profile: training preferences, weekly availability, goals, race " +
+      "history, injuries, and best efforts, heart rate, zones and VO2 max from Garmin. Call it before giving advice or a plan that depends on " +
       "any of these, and again if the athlete says they have changed it. Read only.",
     strict: true,
     input_schema: { type: "object", properties: {}, required: [], additionalProperties: false },

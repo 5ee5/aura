@@ -11,10 +11,13 @@ const time = (seconds: number | null) => (seconds ? formatDuration(seconds) : un
 /** The athlete's name is left out: coaching does not need it. */
 export function describeProfile(profile: Profile): string {
   if (!profile) return "The athlete has not saved a profile yet.";
-  const { athlete, week, goals, bests, races, injuries } = profile;
+  const { athlete, week, goals, races, injuries, garmin } = profile;
+  const snapshot = garmin.snapshot;
 
   return JSON.stringify({
-    note: "Typed in by the athlete. Times are m:ss or h:mm:ss. An empty list means nothing entered.",
+    note:
+      "Typed in by the athlete, except garmin, which was read from their watch. " +
+      "Times are m:ss or h:mm:ss. An empty list means nothing entered.",
     trainingPreferences: athlete.trainingPreferences,
     preferredWorkoutTypes: athlete.preferredWorkoutTypes,
     weeklyAvailability: [...week]
@@ -33,12 +36,6 @@ export function describeProfile(profile: Profile): string {
       distanceKm: km(goal.distanceMetres),
       targetTime: time(goal.targetSeconds),
     })),
-    personalBests: bests.map((best) => ({
-      distanceKm: km(best.distanceMetres),
-      time: time(best.timeSeconds),
-      date: best.achievedOn ?? undefined,
-      source: best.source,
-    })),
     races: races.map((race) => ({
       name: race.name,
       date: race.raceDate,
@@ -55,5 +52,24 @@ export function describeProfile(profile: Profile): string {
       started: injury.startedOn,
       resolved: injury.resolvedOn ?? "not resolved: current",
     })),
+    garmin: snapshot
+      ? {
+          note:
+            "bestEfforts are the fastest stretches inside outdoor runs, not necessarily races " +
+            "or all-out efforts; races lists actual race results.",
+          syncedOn: snapshot.syncedAt.toISOString().slice(0, 10),
+          bestEfforts: garmin.bests.map((best) => ({
+            distanceKm: km(best.distanceMetres),
+            time: time(best.timeSeconds),
+            date: best.achievedOn ?? undefined,
+          })),
+          maxHeartRate: snapshot.maxHeartRate ?? undefined,
+          restingHeartRate: snapshot.restingHeartRate ?? undefined,
+          lactateThresholdHeartRate: snapshot.lactateThresholdHeartRate ?? undefined,
+          heartRateZoneFloors: snapshot.heartRateZones ?? undefined,
+          vo2Max: snapshot.vo2Max ?? undefined,
+          vo2MaxDate: snapshot.vo2MaxOn ?? undefined,
+        }
+      : "not connected",
   });
 }

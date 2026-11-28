@@ -78,6 +78,13 @@
       "when": 1795820341684,
       "tag": "0010_change_proposals",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1795853367128,
+      "tag": "0011_garmin",
+      "breakpoints": true
     }
   ]
 }

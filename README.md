@@ -3,13 +3,14 @@
 A single-user AI running coach, self-hosted.
 
 **Today:** password login, a profile you can edit (preferences, availability,
-goals, personal bests, races, injuries) and a coach chat with Claude. Without an
+goals, races, injuries) and a coach chat with Claude. Without an
 API key the chat returns a labelled **mock** reply. Chats are saved and can be
 reopened or deleted. The coach can read your profile, and propose workouts that
 you approve or decline; approved ones are listed under Workouts. Any current
 workout can be edited step by step in the Studio, scheduled on the Calendar,
 and marked done or skipped. Plans split the season into blocks, and the coach can propose a whole week, a block, or changes to the calendar.
-There is no Garmin or calendar connection.
+With a Garmin key, the Profile page can sync your fastest efforts, heart rate,
+zones and VO2 max from Garmin Connect. There is no calendar connection.
 
 ## Requirements
 
@@ -67,12 +68,26 @@ in the project folder, as one block:
 2. Put it in `.env` as `ANTHROPIC_API_KEY=...`, then `pm2 restart aura`.
 
 What you type is saved in the database and sent to Anthropic. So is your profile
-whenever the coach reads it, injuries included (your name is not), and your
+whenever the coach reads it, injuries and Garmin numbers included (your name is not), and your
 calendar, plan and race names when it reads the schedule. Replies that
 did are marked "read your profile". `COACH_DAILY_BUDGET_USD` (default 2) caps
 what the app spends in any 24 hours, using its own estimate; stopped replies
 count at the most they could have cost. `npm run dev` uses the real key too; set
 `COACH_MOCK=1` to avoid spending.
+
+## Garmin
+
+1. In Garmin Connect, open Profile & Account, Settings, Personal API Key. Choose
+   the longest expiry (one year); the key is shown once.
+2. Put it in `.env` as `GARMIN_API_KEY=...`, then `pm2 restart aura`.
+3. On the Profile page, press Sync from Garmin.
+
+A sync reads your activity list, heart-rate zones and the last 90 days of VO2
+max. Aura keeps the fastest 1 km, mile, 5 km, 10 km, half and marathon inside
+outdoor runs (treadmill and indoor runs are left out), plus max, resting and
+threshold heart rate. These are the only personal bests Aura shows; there is
+no form to type them in. The coach reads them with your profile, so they go to Anthropic too.
+When the key expires, the sync says so: make a new one.
 
 ## Run on the server
 

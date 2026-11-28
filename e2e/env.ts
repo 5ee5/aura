@@ -17,4 +17,6 @@ export const E2E_ENV = {
   // Never call Claude from tests, even when .env holds a real key.
   COACH_MOCK: "1",
   ANTHROPIC_API_KEY: "",
+  // Never call Garmin from tests either.
+  GARMIN_API_KEY: "",
 };

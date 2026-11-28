@@ -5,6 +5,8 @@ import { startTransition, useActionState, useEffect, useRef } from "react";
 export interface FormState {
   ok?: boolean;
   error?: string;
+  /** Shown instead of "Saved". */
+  message?: string;
 }
 
 interface Props {
@@ -56,7 +58,7 @@ export function ActionForm({ action, submitLabel, resetOnSave, confirm, quiet, c
           {!pending && state.error}
         </p>
         <p role="status" className="text-sm text-muted">
-          {!pending && state.ok && "Saved"}
+          {!pending && state.ok && (state.message ?? "Saved")}
         </p>
       </div>
     </form>

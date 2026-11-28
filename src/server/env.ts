@@ -12,6 +12,8 @@ const envSchema = z.object({
   DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/, error: "Not a postgresql:// URL. See the README." }),
   // Without a key the coach is a labelled mock.
   ANTHROPIC_API_KEY: z.preprocess((value) => value || undefined, z.string().optional()),
+  /** Garmin Connect Personal API key. Without one, Garmin sync is off. */
+  GARMIN_API_KEY: z.preprocess((value) => value || undefined, z.string().optional()),
   /** "1" forces the mock even with a key, so tests can never spend money. */
   COACH_MOCK: z.string().optional(),
   COACH_DAILY_BUDGET_USD: z.preprocess(

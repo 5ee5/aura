@@ -37,28 +37,17 @@ test("saves every part of the profile and keeps it after a reload", async ({ pag
   await expect(goals.getByLabel("Description").last()).toHaveValue("");
 
   // A bad value says why, keeps what was typed and saves nothing.
-  const bests = section(page, "Personal bests");
-  await bests.getByText("Add best", { exact: true }).first().click();
-  await bests.getByLabel("Distance, km").fill("5");
-  await bests.getByLabel("Time").fill("fast");
-  await bests.getByRole("button", { name: "Add best" }).click();
-  await expect(bests.getByRole("alert")).toContainText("Time: Enter a time");
-  await expect(bests.getByLabel("Distance, km")).toHaveValue("5");
-  await expect(bests.getByRole("listitem")).toHaveCount(0);
-  await bests.getByLabel("Time").fill("19:45");
-  await bests.getByRole("button", { name: "Add best" }).click();
-  await expect(bests.getByRole("listitem")).toContainText("5 km in 19:45");
-
-  await bests.getByLabel("Distance, km").last().fill("5");
-  await bests.getByLabel("Time").last().fill("20:00");
-  await bests.getByRole("button", { name: "Add best" }).click();
-  await expect(bests.getByRole("alert").last()).toContainText("already have a best");
-
   const races = section(page, "Race history");
   await races.getByText("Add race", { exact: true }).first().click();
   await races.getByLabel("Race name").fill("Riga 10K");
   await races.getByLabel("Date").fill("2026-05-17");
   await races.getByLabel("Distance, km").fill("10");
+  await races.getByLabel("Time (blank if not finished)").fill("fast");
+  await races.getByRole("button", { name: "Add race" }).click();
+  await expect(races.getByRole("alert")).toContainText("Time: Enter a time");
+  await expect(races.getByLabel("Race name")).toHaveValue("Riga 10K");
+  await expect(races.getByRole("listitem")).toHaveCount(0);
+  await races.getByLabel("Time (blank if not finished)").fill("");
   await races.getByRole("button", { name: "Add race" }).click();
   await expect(races.getByRole("listitem")).toContainText("2026-05-17, 10 km road, did not finish");
 
@@ -80,15 +69,21 @@ test("saves every part of the profile and keeps it after a reload", async ({ pag
   await expect(injuries.getByRole("listitem")).toContainText("Left calf");
 
   // Edit, then delete.
-  const best = bests.getByRole("listitem");
-  await best.locator("summary").click();
-  await best.getByLabel("Time").fill("19:30");
-  await best.getByRole("button", { name: "Save best" }).click();
-  await expect(best.locator("summary")).toContainText("19:30");
-  await best.getByRole("button", { name: "Delete best" }).click();
-  await expect(bests.getByRole("listitem")).toHaveCount(0);
+  const race = races.getByRole("listitem");
+  await race.locator("summary").click();
+  await race.getByLabel("Time (blank if not finished)").fill("44:30");
+  await race.getByRole("button", { name: "Save race" }).click();
+  await expect(race.locator("summary")).toContainText("44:30");
+  await race.getByRole("button", { name: "Delete race" }).click();
+  await expect(races.getByRole("listitem")).toHaveCount(0);
   await page.reload();
-  await expect(bests).toContainText("No personal bests yet.");
+  await expect(races).toContainText("No races yet.");
+  await expect(section(page, "Personal bests")).toHaveCount(0);
+
+  // Tests run without a Garmin key, so there is nothing to sync.
+  const garmin = section(page, "From Garmin");
+  await expect(garmin).toContainText("Not connected");
+  await expect(garmin.getByRole("button")).toHaveCount(0);
 
   expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBe(0);
 });

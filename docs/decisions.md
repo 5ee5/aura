@@ -8,9 +8,32 @@ Strava's API Policy (effective 2026-06-01) bars putting Strava data into AI
 models, limits caching to 7 days and bars combining it with other data.
 https://www.strava.com/legal/api_policy
 
-## Garmin Personal API terms are unreviewed
+## Garmin through the Personal API, read only
 
-Read them before building the integration, especially for AI restrictions.
+The terms are shown only inside Garmin Connect when a key is made, so they were
+not checked here: the athlete read them on 2026-11-28 and reports no clause on
+AI use or passing data to other services. Re-check them when making a new key.
+
+The key is swapped for a 24-hour bearer token at
+`personal.connectapi.garmin.com`; there is no refresh token, so each sync asks
+for one when the last has run out. The API reads data only; it cannot send
+workouts to the watch. Its rate limits are undocumented, so a sync pauses
+between pages of activities.
+
+Garmin has no personal-records endpoint. Each activity in the list carries its
+fastest split at set distances (`fastestSplit_5000` and so on, in seconds),
+which is where bests come from. Only outdoor runs count: treadmill and indoor
+distances are estimated. A split faster than 2:30 per km is dropped as a GPS
+glitch. These are fastest stretches inside runs, not race results, so the coach
+is told to prefer the athlete's own bests.
+
+Garmin bests are stored with source "measured" and are read-only: each sync
+replaces them, after everything has been fetched, in one transaction. They are
+the only bests shown or sent to the coach; the form for typing bests in was
+removed, and rows typed in before then stay in the table, unused. Race results
+are still typed in. One snapshot row holds heart rate, zones and
+VO2 max. Sync is manual for now; sleep, HRV and daily data wait for recovery
+analysis.
 
 ## Self-hosted with pm2, published through Cloudflare Tunnel
 

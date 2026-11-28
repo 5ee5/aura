@@ -43,12 +43,6 @@ export const goalSchema = z.object({
   status: z.enum(["active", "achieved", "abandoned"]),
 });
 
-export const bestSchema = z.object({
-  distanceMetres: distance,
-  timeSeconds: duration,
-  achievedOn: optional(day),
-});
-
 export const raceSchema = z.object({
   name: text(200),
   raceDate: day,

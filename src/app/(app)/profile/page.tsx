@@ -5,9 +5,11 @@ import { WEEKDAYS, WORKOUT_TYPES } from "@/lib/profile-options";
 import { formatDuration, formatKilometres } from "@/lib/units";
 import { logout } from "@/server/auth/actions";
 import { requireSession } from "@/server/auth/dal";
-import { saveAbout, saveBest, saveGoal, saveInjury, saveRace, saveWeek } from "@/server/profile/actions";
+import { saveAbout, saveGoal, saveInjury, saveRace, saveWeek } from "@/server/profile/actions";
 import { getProfile } from "@/server/profile/data";
+import { getEnv } from "@/server/env";
 import { Entries } from "./entries";
+import { GarminSection } from "./garmin";
 import { Input, Row, Select, TextArea } from "@/components/form-fields";
 
 export const metadata: Metadata = { title: "Profile" };
@@ -20,6 +22,7 @@ export default async function ProfilePage() {
   await requireSession();
   const profile = await getProfile();
   const athlete = profile?.athlete;
+  const garminConnected = Boolean(getEnv().GARMIN_API_KEY);
 
   return (
     <div className="flex min-h-full max-w-2xl flex-col gap-10">
@@ -132,27 +135,7 @@ export default async function ProfilePage() {
             )}
           />
 
-          <Entries
-            title="Personal bests"
-            noun="best"
-            kind="best"
-            items={profile.bests}
-            empty="No personal bests yet."
-            save={saveBest}
-            summary={(b) => (
-              <>
-                {km(b.distanceMetres)} km in {time(b.timeSeconds)}
-                <span className="block text-sm text-muted">{joined(b.achievedOn, b.source)}</span>
-              </>
-            )}
-            fields={(b) => (
-              <Row>
-                <Input label="Distance, km" name="distanceMetres" inputMode="decimal" defaultValue={km(b?.distanceMetres)} required />
-                <Input label="Time" name="timeSeconds" placeholder="mm:ss" defaultValue={time(b?.timeSeconds)} required />
-                <Input label="Date (optional)" name="achievedOn" type="date" defaultValue={b?.achievedOn ?? ""} />
-              </Row>
-            )}
-          />
+          <GarminSection garmin={profile.garmin} connected={garminConnected} />
 
           <Entries
             title="Race history"
