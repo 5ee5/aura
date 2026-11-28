@@ -1,0 +1,20 @@
+CREATE TABLE "daily_wellness" (
+	"on" date PRIMARY KEY NOT NULL,
+	"sleep_s" integer,
+	"deep_sleep_s" integer,
+	"light_sleep_s" integer,
+	"rem_sleep_s" integer,
+	"awake_s" integer,
+	"sleep_score" smallint,
+	"sleep_hr" smallint,
+	"hrv_last_night" smallint,
+	"hrv_weekly_avg" smallint,
+	"hrv_balanced_low" smallint,
+	"hrv_balanced_high" smallint,
+	"hrv_status" text,
+	"resting_hr" smallint,
+	"stress_avg" smallint,
+	"body_battery_high" smallint,
+	"body_battery_low" smallint,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);

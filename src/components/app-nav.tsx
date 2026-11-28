@@ -8,7 +8,7 @@ import { usePathname } from "next/navigation";
 const SECTIONS = [
   { href: "/", label: "Coach", Icon: MessageSquare, also: [] },
   // The workout list and the Studio are reached from the calendar.
-  { href: "/calendar", label: "Calendar", Icon: CalendarDays, also: ["/workouts", "/plans", "/analytics"] },
+  { href: "/calendar", label: "Calendar", Icon: CalendarDays, also: ["/workouts", "/plans", "/analytics", "/recovery"] },
   { href: "/profile", label: "Profile", Icon: UserRound, also: [] },
 ] as const;
 

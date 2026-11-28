@@ -71,8 +71,9 @@ in the project folder, as one block:
 
 What you type is saved in the database and sent to Anthropic. So is your profile
 whenever the coach reads it, injuries and Garmin numbers included (your name is not), and your
-calendar, plan and race names and your Garmin activities (sport, distance, time,
-heart rate, load) when it reads the schedule. Replies that
+calendar, plan and race names, your Garmin activities (sport, distance, time,
+heart rate, load) and your sleep, HRV and resting heart rate when it reads the
+schedule. Replies that
 did are marked "read your profile". `COACH_DAILY_BUDGET_USD` (default 2) caps
 what the app spends in any 24 hours, using its own estimate; stopped replies
 count at the most they could have cost. `npm run dev` uses the real key too; set
@@ -93,7 +94,9 @@ max. Every activity is stored with its type, start, distance, time, elevation,
 heart rate, cadence and load, not its location. A run on the day of a planned
 workout marks that workout done unless you marked it yourself; other runs show
 as unplanned on the Calendar, beside rides, walks and other sports, which never
-mark a workout done. Aura keeps the fastest 1 km, mile, 5 km, 10 km, half and marathon inside
+mark a workout done. Each sync also reads sleep, HRV, resting heart rate, stress
+and Body Battery (90 days the first time, then the last two weeks), shown on
+Calendar → Recovery. Aura keeps the fastest 1 km, mile, 5 km, 10 km, half and marathon inside
 outdoor runs (treadmill and indoor runs are left out), plus max, resting and
 threshold heart rate. These are the only personal bests Aura shows; there is
 no form to type them in. The coach reads them with your profile, so they go to Anthropic too.

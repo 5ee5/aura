@@ -417,3 +417,32 @@ export const googleAccounts = pgTable(
   },
   () => [uniqueIndex("google_accounts_only_one").on(sql`(true)`)],
 );
+
+/**
+ * One day of recovery data from Garmin: the night that ended that morning,
+ * HRV, resting heart rate, stress and Body Battery. Watch estimates; a missing
+ * value means the watch recorded none, never zero.
+ */
+export const dailyWellness = pgTable("daily_wellness", {
+  on: date().primaryKey(),
+  sleepSeconds: integer("sleep_s"),
+  deepSleepSeconds: integer("deep_sleep_s"),
+  lightSleepSeconds: integer("light_sleep_s"),
+  remSleepSeconds: integer("rem_sleep_s"),
+  awakeSeconds: integer("awake_s"),
+  sleepScore: smallint("sleep_score"),
+  sleepHeartRate: smallint("sleep_hr"),
+  /** Overnight HRV average, milliseconds. */
+  hrvLastNight: smallint("hrv_last_night"),
+  hrvWeeklyAverage: smallint("hrv_weekly_avg"),
+  /** Garmin's personal "balanced" band, milliseconds. */
+  hrvBalancedLow: smallint("hrv_balanced_low"),
+  hrvBalancedHigh: smallint("hrv_balanced_high"),
+  /** Garmin's word: BALANCED, UNBALANCED, LOW, POOR. */
+  hrvStatus: text("hrv_status"),
+  restingHeartRate: smallint("resting_hr"),
+  stressAverage: smallint("stress_avg"),
+  bodyBatteryHigh: smallint("body_battery_high"),
+  bodyBatteryLow: smallint("body_battery_low"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});

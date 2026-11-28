@@ -14,4 +14,4 @@
 2. Claude streaming chat, conversation persistence, workout proposals, Workout Studio (done)
 3. Training calendar, plans, scheduling, planned-versus-done analytics (done)
 4. Garmin (bests, heart rate, zones, VO2 max, all activities and automatic sync done), Google Calendar (approved workouts written to an Aura calendar; done)
-5. Adaptive recommendations, recovery analysis, race preparation
+5. Recovery data (sleep, HRV, resting heart rate on /recovery and to the coach: done), adaptive recommendations, race preparation

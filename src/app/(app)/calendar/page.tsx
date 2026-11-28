@@ -171,7 +171,13 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
   ]);
   const sources: SourceStatus[] = [];
   if (getEnv().GARMIN_API_KEY)
-    sources.push({ name: "Garmin", verb: "synced", lastSync, every: autoSyncEnabled() ? "Syncs every 2 hours, 06:00–23:00." : undefined, error: lastAttempt()?.error });
+    sources.push({
+      name: "Garmin",
+      verb: "synced",
+      lastSync,
+      every: autoSyncEnabled() ? "Syncs every 2 hours, 06:00–23:00." : undefined,
+      error: lastAttempt()?.error ?? (lastAttempt()?.wellnessError && `recovery data: ${lastAttempt()!.wellnessError}`),
+    });
   if (google)
     sources.push({
       name: "Aura calendar in Google",
@@ -206,6 +212,9 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
           </Link>
           <Link href="/analytics" className={tab}>
             Analytics
+          </Link>
+          <Link href="/recovery" className={tab}>
+            Recovery
           </Link>
         </div>
       </div>

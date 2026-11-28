@@ -32,7 +32,7 @@ replaces them, after everything has been fetched, in one transaction. They are
 the only bests shown or sent to the coach; the form for typing bests in was
 removed and the typed-in rows deleted on 2026-11-28. Race results are still
 typed in. One snapshot row holds heart rate, zones and
-VO2 max. Sleep, HRV and daily data wait for recovery analysis.
+VO2 max.
 
 ## Self-hosted with pm2, published through Cloudflare Tunnel
 
@@ -229,6 +229,26 @@ are overwritten. Updates run a few seconds after any change to workouts,
 after a Garmin sync, every hour, and from Sync now; never two at once, and
 never in development or tests. The athlete's action never waits on Google: a
 failure shows on the Calendar and the next run retries.
+
+## Recovery data is shown and passed on, never scored
+
+Each Garmin sync also reads sleep, HRV and the daily summary (resting heart
+rate, stress, Body Battery) into `daily_wellness`, one row per date. A night
+belongs to the morning it ended, as Garmin files it. The first sync reads 90
+days; later ones re-read the last 14, since nights arrive and change late, and
+replace exactly those dates in one transaction. Sleep is served in 28-day
+requests at most. Numbers outside plausible ranges are dropped, Garmin's advice
+texts are not copied, and an odd answer is an error rather than no data. This
+runs after activities and PBs are saved, so its failure never undoes them; it
+shows on the Calendar as a recovery-data error.
+
+`/recovery` shows the last night, 7- and 28-day averages and two weeks of
+days. Averages skip days without a reading and need 4 of 7 or 14 of 28 days;
+today's resting heart rate, stress and Body Battery are left out of them
+because the day is not over. Aura computes no readiness score: the coach gets
+each past day's numbers, Garmin's HRV status and band, and the averages
+through `get_schedule`, labelled as watch estimates, and is told to weigh a
+trend with load and how the athlete feels rather than one reading.
 
 ## Garmin syncs on a timer inside the app
 

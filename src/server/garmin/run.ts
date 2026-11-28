@@ -7,12 +7,15 @@ import { getAthlete } from "@/server/profile/data";
 import { createGarminClient, GarminError } from "./client";
 import { pushSoon } from "@/server/google/push";
 import { syncGarmin, type SyncResult } from "./sync";
+import { syncWellness } from "./wellness";
 
 /** What the last attempt did, kept in memory: there is one server process. */
 export interface SyncStatus {
   at: Date;
   how: "button" | "timer";
   error?: string;
+  /** Recovery data is fetched apart; its failure never undoes activities. */
+  wellnessError?: string;
 }
 
 const state = globalThis as { garminSyncRunning?: boolean; garminLastAttempt?: SyncStatus };
@@ -29,8 +32,16 @@ export async function runGarminSync(how: SyncStatus["how"]): Promise<{ result?: 
 
   state.garminSyncRunning = true;
   try {
-    const result = await syncGarmin(getDb(), createGarminClient({ apiKey }), athlete.id, { today: localToday() });
-    state.garminLastAttempt = { at: new Date(), how };
+    const client = createGarminClient({ apiKey });
+    const result = await syncGarmin(getDb(), client, athlete.id, { today: localToday() });
+    let wellnessError: string | undefined;
+    try {
+      await syncWellness(getDb(), client, localToday());
+    } catch (error) {
+      wellnessError = error instanceof GarminError ? error.message : "Recovery data could not be read.";
+      if (!(error instanceof GarminError)) console.error("Garmin recovery sync failed:", error instanceof Error ? error.message : error);
+    }
+    state.garminLastAttempt = { at: new Date(), how, wellnessError };
     revalidatePath("/", "layout");
     // New runs can mark workouts done, which shows in the Aura calendar.
     pushSoon();

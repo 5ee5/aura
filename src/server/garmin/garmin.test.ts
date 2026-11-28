@@ -206,7 +206,8 @@ describe("syncGarmin", () => {
           return failOn === "bad-page" && start === 100 ? { error: "odd" } : list.slice(start, start + 100);
         }
         if (path.startsWith("/biometric-service")) return [{ sport: "RUNNING", maxHeartRateUsed: 188 }];
-        return [{ generic: { calendarDate: "2026-11-25", vo2MaxValue: 50 } }];
+        if (path.startsWith("/metrics-service")) return [{ generic: { calendarDate: "2026-11-25", vo2MaxValue: 50 } }];
+        throw new Error(`unexpected path ${path}`);
       },
     };
   }

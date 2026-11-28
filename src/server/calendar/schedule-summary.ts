@@ -1,7 +1,9 @@
 import "server-only";
 import { z } from "zod";
 import { addDays, daysBetween, isDate, isoWeekday, localToday, startOfWeek } from "@/lib/dates";
+import { recoverySummary } from "@/lib/recovery";
 import { otherTotals, runTotals, type Run } from "@/lib/runs";
+import { wellnessBetween } from "@/server/garmin/wellness-store";
 import { WORKOUT_TYPES } from "@/lib/workout";
 import { getProfile } from "@/server/profile/data";
 export { GET_SCHEDULE_TOOL } from "./schedule-tool";
@@ -32,7 +34,16 @@ export async function describeSchedule(input: unknown): Promise<ToolOutcome> {
   // Whole weeks, so the totals mean something.
   const from = startOfWeek(parsed.data.from);
   const to = addDays(startOfWeek(parsed.data.to), 6);
-  const [{ days, blocks }, profile, plans] = await Promise.all([calendarDays(from, to), getProfile(), listPlans(getDb())]);
+  const today = localToday();
+  const [{ days, blocks }, profile, plans, wellness] = await Promise.all([
+    calendarDays(from, to),
+    getProfile(),
+    listPlans(getDb()),
+    // 28 days before the range too, for the averages.
+    wellnessBetween(getDb(), addDays(from < today ? from : today, -28), today),
+  ]);
+  const wellnessOn = new Map(wellness.map((w) => [w.on, w]));
+  const summary = recoverySummary(wellness, today);
   const available = new Map(profile?.week.map((d) => [d.weekday, d.maxMinutes]) ?? []);
 
   const weeks = [];
@@ -70,12 +81,41 @@ export async function describeSchedule(input: unknown): Promise<ToolOutcome> {
         })),
         unplannedRuns: d.extraRuns.length ? d.extraRuns.map(ran) : undefined,
         otherActivities: d.others.length ? d.others.map((a) => ({ ...ran(a), kind: a.type })) : undefined,
+        recovery: (() => {
+          const w = wellnessOn.get(d.date);
+          if (!w) return undefined;
+          return {
+            sleepHours: w.sleepSeconds === null ? undefined : Math.round(w.sleepSeconds / 360) / 10,
+            sleepScore: w.sleepScore ?? undefined,
+            hrvMs: w.hrvLastNight ?? undefined,
+            hrvStatus: w.hrvStatus ?? undefined,
+            restingHeartRate: d.date === today ? undefined : (w.restingHeartRate ?? undefined),
+            bodyBatteryHigh: d.date === today ? undefined : (w.bodyBatteryHigh ?? undefined),
+          };
+        })(),
       })),
     });
   }
   return {
     content: JSON.stringify({
-      today: localToday(),
+      today,
+      recoveryAverages: wellness.length
+        ? {
+            note:
+              "Garmin watch estimates. Each night belongs to the morning it ended; today's daytime numbers are " +
+              "left out because the day is not over. Averages skip days without a reading; null means too few days.",
+            sleepHours7: summary.sleepHours7.value,
+            sleepHours28: summary.sleepHours28.value,
+            hrvMs7: summary.hrv7.value,
+            hrvMs28: summary.hrv28.value,
+            hrvUsualRange:
+              summary.lastNight?.hrvBalancedLow != null
+                ? `${summary.lastNight.hrvBalancedLow}-${summary.lastNight.hrvBalancedHigh}`
+                : undefined,
+            restingHeartRate7: summary.restingHeartRate7.value,
+            restingHeartRate28: summary.restingHeartRate28.value,
+          }
+        : undefined,
       note:
         "Only approved workouts are listed; their minutes are estimates. An outcome comes from the athlete's " +
         "mark, or is done because Garmin recorded a run that day (ran). unplannedRuns and ran totals are what " +
