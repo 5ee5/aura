@@ -3,13 +3,13 @@ import Link from "next/link";
 import { addDays, formatDate, localToday, startOfWeek } from "@/lib/dates";
 import { requireSession } from "@/server/auth/dal";
 import { consistency, weeklySummary } from "@/server/analytics/summary";
-import { getDb } from "@/server/db/client";
-import { approvedBetween } from "@/server/workouts/store";
+import { plannedAndRun } from "@/server/calendar/data";
 
 export const metadata: Metadata = { title: "Analytics" };
 
 const WEEKS = 8;
 const percent = (share: number | null) => (share === null ? "–" : `${Math.round(share * 100)}%`);
+const hours = (minutes: number) => `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, "0")}`;
 
 /** Done time against planned time, as a bar inside its cell; the numbers stay in the text. */
 function DoneBar({ done, planned }: { done: number; planned: number }) {
@@ -26,10 +26,12 @@ export default async function AnalyticsPage() {
   const today = localToday();
   const thisWeek = startOfWeek(today);
   const mondays = Array.from({ length: WEEKS }, (_, i) => addDays(thisWeek, (i - WEEKS + 1) * 7));
-  const workouts = await approvedBetween(getDb(), mondays[0]!, addDays(thisWeek, 6));
-  const weeks = weeklySummary(workouts, mondays, today);
+  const { workouts, runs, matches } = await plannedAndRun(mondays[0]!, addDays(thisWeek, 6));
+  const weeks = weeklySummary(workouts, mondays, today, matches, runs);
   const recent = weeks.slice(-4);
-  const doneRecent = recent.reduce((n, w) => n + w.doneMinutes, 0);
+  const ranKm = Math.round(recent.reduce((n, w) => n + w.ran.km, 0) * 10) / 10;
+  const ranRuns = recent.reduce((n, w) => n + w.ran.runs, 0);
+  const ranMinutes = recent.reduce((n, w) => n + w.ran.minutes, 0);
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -40,8 +42,9 @@ export default async function AnalyticsPage() {
         </Link>
       </div>
       <p className="mt-2 text-muted">
-        From the workouts you approved and marked done or skipped. Minutes are estimates from each
-        workout’s steps. Pace, heart rate and training load need Garmin data, which isn’t connected yet.
+        Done and planned come from the workouts you approved: done when you marked it, or when Garmin
+        recorded a run that day. Planned minutes are estimates from each workout’s steps. Ran is what
+        Garmin recorded, planned or not, as of the last sync.
       </p>
 
       <dl className="mt-6 grid grid-cols-2 gap-3">
@@ -51,11 +54,11 @@ export default async function AnalyticsPage() {
           <dd className="text-sm text-muted">of workouts whose day has come</dd>
         </div>
         <div className="rounded-lg border border-line bg-surface p-4">
-          <dt className="text-sm text-muted">Time done, last 4 weeks</dt>
-          <dd className="mt-1 font-display text-4xl">
-            {Math.floor(doneRecent / 60)}h {String(doneRecent % 60).padStart(2, "0")}
+          <dt className="text-sm text-muted">Ran, last 4 weeks</dt>
+          <dd className="mt-1 font-display text-4xl">{ranKm} km</dd>
+          <dd className="text-sm text-muted">
+            {ranRuns} runs, {hours(ranMinutes)}
           </dd>
-          <dd className="text-sm text-muted">estimated</dd>
         </div>
       </dl>
 
@@ -67,6 +70,7 @@ export default async function AnalyticsPage() {
             <th scope="col" className="py-2 pr-2 font-normal">Done / planned</th>
             <th scope="col" className="py-2 pr-2 text-right font-normal">Done</th>
             <th scope="col" className="py-2 pr-2 text-right font-normal">Skipped</th>
+            <th scope="col" className="py-2 pr-2 text-right font-normal">Ran</th>
             <th scope="col" className="py-2 text-right font-normal">Hard</th>
           </tr>
         </thead>
@@ -87,6 +91,14 @@ export default async function AnalyticsPage() {
               <td className="py-2 pr-2 text-right">
                 {week.skipped}
                 {week.unmarked > 0 && <span className="block text-muted">{week.unmarked} not marked</span>}
+              </td>
+              <td className="py-2 pr-2 text-right">
+                {week.ran.runs ? `${week.ran.km} km` : "–"}
+                {week.ran.runs > 0 && (
+                  <span className="block text-muted">
+                    {week.ran.runs} {week.ran.runs === 1 ? "run" : "runs"}, {hours(week.ran.minutes)}
+                  </span>
+                )}
               </td>
               <td className="py-2 text-right">{percent(week.hardShare)}</td>
             </tr>

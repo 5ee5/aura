@@ -3,10 +3,10 @@ import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { athletes, garminSnapshots, personalBests } from "../db/schema";
+import { activities, athletes, garminSnapshots, personalBests } from "../db/schema";
 import { resetTestDatabase, testDatabaseUrl } from "../db/test-database";
 import { createGarminClient, GarminError, type GarminClient } from "./client";
-import { bestsFromActivities, heartRateFromZones, latestVo2Max } from "./extract";
+import { activityFromGarmin, bestsFromActivities, heartRateFromZones, isRunType, latestVo2Max } from "./extract";
 import { syncGarmin } from "./sync";
 
 const run = (id: number, date: string, splits: Record<number, number>, type = "running") => ({
@@ -47,6 +47,65 @@ describe("bestsFromActivities", () => {
   it("keeps the earlier run on a tie", () => {
     const [best] = bestsFromActivities([run(2, "2025-06-01", { 1000: 240 }), run(1, "2025-02-01", { 1000: 240 })]);
     expect(best).toMatchObject({ activityId: 1, achievedOn: "2025-02-01" });
+  });
+});
+
+describe("activityFromGarmin", () => {
+  const full = {
+    activityId: 42,
+    activityName: "Morning run",
+    activityType: { typeKey: "treadmill_running" },
+    startTimeLocal: "2025-05-01 07:30:00",
+    distance: 8000.5,
+    duration: 2400,
+    movingDuration: 2390,
+    elevationGain: 0,
+    averageHR: 148.4,
+    maxHR: 171,
+    averageRunningCadenceInStepsPerMinute: 172.5,
+    activityTrainingLoad: 61.2,
+    aerobicTrainingEffect: 3.1,
+    anaerobicTrainingEffect: 0,
+    hrTimeInZone_1: 100, hrTimeInZone_2: 900, hrTimeInZone_3: 1200, hrTimeInZone_4: 200, hrTimeInZone_5: 0,
+    ownerFullName: "Someone Private",
+    ownerProfileImageUrlSmall: "https://example.invalid/me.jpg",
+    startLatitude: 56.9,
+    startLongitude: 24.1,
+  };
+
+  it("keeps the allowed fields and nothing personal or located", () => {
+    const row = activityFromGarmin(full)!;
+    expect(row).toEqual({
+      garminId: 42,
+      type: "treadmill_running",
+      name: "Morning run",
+      startLocal: "2025-05-01 07:30:00",
+      on: "2025-05-01",
+      distanceMetres: 8000.5,
+      durationSeconds: 2400,
+      movingSeconds: 2390,
+      elevationGainMetres: 0,
+      averageHeartRate: 148,
+      maxHeartRate: 171,
+      averageCadence: 172.5,
+      trainingLoad: 61.2,
+      aerobicEffect: 3.1,
+      anaerobicEffect: 0,
+      heartRateZoneSeconds: [100, 900, 1200, 200, 0],
+    });
+    expect(JSON.stringify(row)).not.toMatch(/Private|jpg|56\.9|24\.1/);
+  });
+
+  it("skips what it cannot place in time", () => {
+    expect(activityFromGarmin({ ...full, duration: 0 })).toBeUndefined();
+    expect(activityFromGarmin({ ...full, startTimeLocal: "yesterday" })).toBeUndefined();
+    expect(activityFromGarmin({ ...full, activityId: undefined })).toBeUndefined();
+    expect(activityFromGarmin({ ...full, hrTimeInZone_3: null })?.heartRateZoneSeconds).toBeNull();
+  });
+
+  it("counts every kind of run as a run", () => {
+    expect(["running", "trail_running", "treadmill_running", "indoor_running", "virtual_run"].every(isRunType)).toBe(true);
+    expect(["cycling", "walking", "indoor_rowing"].some(isRunType)).toBe(false);
   });
 });
 
@@ -138,13 +197,13 @@ describe("syncGarmin", () => {
 
   /** 150 runs over two pages, then zones and VO2 max. */
   function fakeClient(failOn?: string): GarminClient {
-    const activities = Array.from({ length: 150 }, (_, i) => run(i + 1, "2025-05-01", { 5000: 1400 + i }));
+    const list = Array.from({ length: 150 }, (_, i) => ({ ...run(i + 1, "2025-05-01", { 5000: 1400 + i }), duration: 1800 }));
     return {
       async get(path) {
         if (failOn && path.startsWith(failOn)) throw new GarminError("rate", "slow down");
         if (path.startsWith("/activitylist-service")) {
           const start = Number(new URL(path, "https://x").searchParams.get("start"));
-          return activities.slice(start, start + 100);
+          return failOn === "bad-page" && start === 100 ? { error: "odd" } : list.slice(start, start + 100);
         }
         if (path.startsWith("/biometric-service")) return [{ sport: "RUNNING", maxHeartRateUsed: 188 }];
         return [{ generic: { calendarDate: "2026-11-25", vo2MaxValue: 50 } }];
@@ -156,10 +215,11 @@ describe("syncGarmin", () => {
 
   it("stores Garmin bests beside the athlete's own and keeps one snapshot", async () => {
     const result = await syncGarmin(db, fakeClient(), athleteId, { today: "2026-11-28", pauseMs: 0 });
-    expect(result).toEqual({ runsRead: 150, bests: 1 });
+    expect(result).toEqual({ runsRead: 150, bests: 1, activities: 150 });
     expect(await measured()).toMatchObject([{ distanceMetres: 5000, timeSeconds: 1400, garminActivityId: 1 }]);
     await syncGarmin(db, fakeClient(), athleteId, { today: "2026-11-28", pauseMs: 0 });
     expect(await measured()).toHaveLength(1);
+    expect(await db.$count(activities)).toBe(150);
     expect(await db.select().from(garminSnapshots)).toMatchObject([{ maxHeartRate: 188, vo2Max: 50, runsRead: 150 }]);
     const own = await db.select().from(personalBests).where(eq(personalBests.source, "reported"));
     expect(own).toMatchObject([{ timeSeconds: 1500 }]);
@@ -172,5 +232,12 @@ describe("syncGarmin", () => {
     );
     expect(await measured()).toHaveLength(1);
     expect(await db.select().from(garminSnapshots)).toMatchObject([{ runsRead: 7 }]);
+  });
+
+  it("treats an odd page of activities as a failure, not the end of the list", async () => {
+    await expect(syncGarmin(db, fakeClient("bad-page"), athleteId, { today: "2026-11-28", pauseMs: 0 })).rejects.toThrow(
+      "unexpected activity list",
+    );
+    expect(await db.$count(activities)).toBe(150);
   });
 });

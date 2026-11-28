@@ -3,7 +3,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { addDays, addMonths, daysBetween, formatDate, isDate, localToday, monthWeeks, startOfWeek } from "@/lib/dates";
 import { BLOCK_FOCUSES } from "@/lib/plans";
+import { describeRun, type Run } from "@/lib/runs";
+import { GarminSync } from "@/components/garmin-sync";
+import { lastGarminSync } from "@/server/activities/store";
 import { requireSession } from "@/server/auth/dal";
+import { getDb } from "@/server/db/client";
+import { getEnv } from "@/server/env";
 import { calendarDays, type Day } from "@/server/calendar/data";
 import { CalendarEntry } from "./entry";
 
@@ -23,6 +28,23 @@ function Badges({ day }: { day: Day }) {
         </span>
       ))}
     </>
+  );
+}
+
+const runLabel = (run: Run) =>
+  `${run.type === "running" ? "Run" : run.type.replaceAll("_", " ").replace(/^./, (c) => c.toUpperCase())}: ${describeRun(run)}`;
+
+function ExtraRuns({ runs }: { runs: Run[] }) {
+  if (runs.length === 0) return null;
+  return (
+    <ul className="mt-2 flex flex-col gap-1">
+      {runs.map((run) => (
+        <li key={run.id} className="rounded-lg border border-dashed border-line px-3 py-2 text-sm">
+          {runLabel(run)}
+          <span className="ml-2 text-muted">not planned</span>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -46,8 +68,9 @@ function WeekView({ days, today }: { days: Day[]; today: string }) {
                 ))}
               </ul>
             ) : (
-              <p className="mt-1 text-sm text-muted">Nothing planned.</p>
+              day.extraRuns.length === 0 && <p className="mt-1 text-sm text-muted">Nothing planned.</p>
             )}
+            <ExtraRuns runs={day.extraRuns} />
           </li>
         );
       })}
@@ -81,7 +104,9 @@ function MonthView({ days, month, today }: { days: Day[]; month: string; today: 
                     href={`/calendar?view=week&date=${day.date}`}
                     aria-label={`${formatDate(day.date, { weekday: "long", day: "numeric", month: "long" })}: ${
                       day.workouts.length ? day.workouts.map((w) => w.title).join(", ") : "nothing planned"
-                    }${day.races.length ? `, race: ${day.races.join(", ")}` : ""}`}
+                    }${day.extraRuns.length ? `, ${day.extraRuns.length} unplanned run${day.extraRuns.length > 1 ? "s" : ""}` : ""}${
+                      day.races.length ? `, race: ${day.races.join(", ")}` : ""
+                    }`}
                     className="block h-full"
                   >
                     <span className={day.date === today ? "rounded bg-accent px-1 text-background" : ""}>
@@ -95,10 +120,18 @@ function MonthView({ days, month, today }: { days: Day[]; month: string; today: 
                           {w.title}
                         </span>
                       ))}
+                      {day.extraRuns.map((run) => (
+                        <span key={run.id} className="truncate text-muted">
+                          {run.distanceMetres ? `${(run.distanceMetres / 1000).toFixed(1)} km` : `${Math.round(run.durationSeconds / 60)} min`}
+                        </span>
+                      ))}
                     </span>
                     <span aria-hidden className="mt-1 flex flex-wrap gap-1 md:hidden">
                       {day.workouts.map((w) => (
                         <span key={w.id} className={`size-2 rounded-full ${w.outcome === "skipped" ? "bg-line-strong" : "bg-accent"}`} />
+                      ))}
+                      {day.extraRuns.map((run) => (
+                        <span key={run.id} className="size-2 rounded-full border border-muted" />
                       ))}
                     </span>
                   </Link>
@@ -122,7 +155,7 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
   const weeks = view === "month" ? monthWeeks(anchor) : [startOfWeek(anchor)];
   const from = weeks[0]!;
   const to = addDays(weeks.at(-1)!, 6);
-  const { days, unscheduled, blocks } = await calendarDays(from, to);
+  const [{ days, unscheduled, blocks }, lastSync] = await Promise.all([calendarDays(from, to), lastGarminSync(getDb())]);
   const previous = view === "month" ? addMonths(anchor, -1) : addDays(from, -7);
   const next = view === "month" ? addMonths(anchor, 1) : addDays(from, 7);
   const title =
@@ -170,6 +203,8 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
           </Link>
         </div>
       </nav>
+
+      {getEnv().GARMIN_API_KEY && <GarminSync lastSync={lastSync} />}
 
       {blocks.length > 0 && (
         <ul aria-label="Training blocks" className="mt-3 flex flex-col gap-1">

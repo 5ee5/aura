@@ -21,6 +21,7 @@ describe("migrations", () => {
       "select table_name from information_schema.tables where table_schema = 'public' order by 1",
     );
     expect(rows.map((row) => row.table_name)).toEqual([
+      "activities",
       "athletes",
       "availability",
       "change_proposals",

@@ -92,7 +92,7 @@ export default async function CoachPage({ searchParams }: PageProps<"/">) {
       <p className="mt-2 border-b border-line pb-3 text-sm text-accent">
         {mock
           ? "Mock coach: replies are canned."
-          : "Claude can read your profile, injuries and Garmin numbers included, and your calendar and plans. What you type and what it reads go to Anthropic."}
+          : "Claude can read your profile, injuries and Garmin numbers included, your calendar and plans, and your Garmin runs. What you type and what it reads go to Anthropic."}
       </p>
       {/* A new key on every load, so one chat's messages never carry into another. */}
       <Chat

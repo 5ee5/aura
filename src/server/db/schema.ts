@@ -12,6 +12,7 @@ import {
   numeric,
   pgEnum,
   pgTable,
+  real,
   smallint,
   text,
   timestamp,
@@ -367,4 +368,35 @@ export const garminSnapshots = pgTable(
     syncedAt: timestamp("synced_at", { withTimezone: true }).notNull(),
   },
   () => [uniqueIndex("garmin_snapshots_only_one").on(sql`(true)`)],
+);
+
+/**
+ * Activities read from Garmin: an allowlist of fields, never names of people,
+ * photos or coordinates. Replaced as a whole on each sync.
+ */
+export const activities = pgTable(
+  "activities",
+  {
+    id: id(),
+    garminId: bigint("garmin_id", { mode: "number" }).notNull().unique(),
+    /** Garmin's type key, such as running or treadmill_running. */
+    type: text().notNull(),
+    name: text(),
+    /** Local date and time the activity started, as the watch recorded it. */
+    startLocal: timestamp("start_local", { mode: "string" }).notNull(),
+    on: date().notNull(),
+    distanceMetres: real("distance_m"),
+    durationSeconds: real("duration_s").notNull(),
+    movingSeconds: real("moving_s"),
+    elevationGainMetres: real("elevation_gain_m"),
+    averageHeartRate: smallint("avg_hr"),
+    maxHeartRate: smallint("max_hr"),
+    averageCadence: real("avg_cadence"),
+    trainingLoad: real("training_load"),
+    aerobicEffect: real("aerobic_effect"),
+    anaerobicEffect: real("anaerobic_effect"),
+    /** Seconds in heart-rate zones 1 to 5. */
+    heartRateZoneSeconds: jsonb("hr_zone_s").$type<number[]>(),
+  },
+  (t) => [index("activities_on").on(t.on)],
 );

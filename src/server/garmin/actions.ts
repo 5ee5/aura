@@ -24,7 +24,7 @@ export async function syncFromGarmin(): Promise<FormState> {
   try {
     const result = await syncGarmin(getDb(), createGarminClient({ apiKey }), athlete.id, { today: localToday() });
     revalidatePath("/", "layout");
-    return { ok: true, message: `Synced: ${result.runsRead} outdoor runs read, ${result.bests} bests found.` };
+    return { ok: true, message: `Synced ${result.activities} activities; ${result.bests} bests found.` };
   } catch (error) {
     if (error instanceof GarminError) return { error: error.message };
     console.error("Garmin sync failed:", error instanceof Error ? error.message : error);

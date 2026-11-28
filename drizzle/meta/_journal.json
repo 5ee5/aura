@@ -85,6 +85,13 @@
       "when": 1795853367128,
       "tag": "0011_garmin",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1795855218554,
+      "tag": "0012_activities",
+      "breakpoints": true
     }
   ]
 }

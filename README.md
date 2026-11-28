@@ -9,8 +9,9 @@ reopened or deleted. The coach can read your profile, and propose workouts that
 you approve or decline; approved ones are listed under Workouts. Any current
 workout can be edited step by step in the Studio, scheduled on the Calendar,
 and marked done or skipped. Plans split the season into blocks, and the coach can propose a whole week, a block, or changes to the calendar.
-With a Garmin key, the Profile page can sync your fastest efforts, heart rate,
-zones and VO2 max from Garmin Connect. There is no calendar connection.
+With a Garmin key, a sync reads your runs, fastest efforts, heart rate, zones
+and VO2 max from Garmin Connect. A run on the day of a planned workout marks it
+done. There is no calendar connection.
 
 ## Requirements
 
@@ -69,7 +70,8 @@ in the project folder, as one block:
 
 What you type is saved in the database and sent to Anthropic. So is your profile
 whenever the coach reads it, injuries and Garmin numbers included (your name is not), and your
-calendar, plan and race names when it reads the schedule. Replies that
+calendar, plan and race names and your Garmin runs (distance, time, heart rate,
+load) when it reads the schedule. Replies that
 did are marked "read your profile". `COACH_DAILY_BUDGET_USD` (default 2) caps
 what the app spends in any 24 hours, using its own estimate; stopped replies
 count at the most they could have cost. `npm run dev` uses the real key too; set
@@ -80,10 +82,14 @@ count at the most they could have cost. `npm run dev` uses the real key too; set
 1. In Garmin Connect, open Profile & Account, Settings, Personal API Key. Choose
    the longest expiry (one year); the key is shown once.
 2. Put it in `.env` as `GARMIN_API_KEY=...`, then `pm2 restart aura`.
-3. On the Profile page, press Sync from Garmin.
+3. Press Sync now on the Calendar, or Sync from Garmin on the Profile page.
+   Sync is manual for now.
 
 A sync reads your activity list, heart-rate zones and the last 90 days of VO2
-max. Aura keeps the fastest 1 km, mile, 5 km, 10 km, half and marathon inside
+max. Every activity is stored with its type, start, distance, time, elevation,
+heart rate, cadence and load, not its location. A run on the day of a planned
+workout marks that workout done unless you marked it yourself; other runs show
+as unplanned on the Calendar. Aura keeps the fastest 1 km, mile, 5 km, 10 km, half and marathon inside
 outdoor runs (treadmill and indoor runs are left out), plus max, resting and
 threshold heart rate. These are the only personal bests Aura shows; there is
 no form to type them in. The coach reads them with your profile, so they go to Anthropic too.

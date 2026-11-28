@@ -3,6 +3,7 @@
 import { CalendarClock, Check, X } from "lucide-react";
 import Link from "next/link";
 import { useState, useTransition } from "react";
+import { describeRun, type Run } from "@/lib/runs";
 import type { WorkoutType } from "@/lib/workout";
 import { WORKOUT_TYPES } from "@/lib/workout";
 import { markWorkout, moveWorkout } from "@/server/calendar/actions";
@@ -12,7 +13,11 @@ export interface EntryWorkout {
   title: string;
   type: WorkoutType;
   scheduledOn: string | null;
+  /** The athlete's mark, else done when Garmin recorded a matching run. */
   outcome: "done" | "skipped" | null;
+  /** The athlete's own mark only. */
+  marked: "done" | "skipped" | null;
+  run?: Run;
   minutes: number;
   hard: boolean;
 }
@@ -50,9 +55,11 @@ export function CalendarEntry({ workout, today }: { workout: EntryWorkout; today
         {workout.outcome && (
           <p className={`shrink-0 text-sm ${workout.outcome === "done" ? "text-accent" : "text-muted"}`}>
             {workout.outcome === "done" ? "Done" : "Skipped"}
+            {workout.outcome === "done" && !workout.marked && <span className="block text-muted">by Garmin</span>}
           </p>
         )}
       </div>
+      {workout.run && <p className="mt-1 text-sm">Ran {describeRun(workout.run)}</p>}
       <div className="mt-2 flex flex-wrap gap-2">
         {markable && workout.outcome !== "done" && (
           <button type="button" disabled={pending} onClick={() => run(() => markWorkout(workout.id, "done"))} className={small}>
@@ -66,7 +73,7 @@ export function CalendarEntry({ workout, today }: { workout: EntryWorkout; today
             Skipped
           </button>
         )}
-        {markable && workout.outcome && (
+        {markable && workout.marked && (
           <button type="button" disabled={pending} onClick={() => run(() => markWorkout(workout.id, null))} className={small}>
             Clear mark
           </button>

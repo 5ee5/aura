@@ -118,7 +118,7 @@ Rules in `src/server/workouts/rules.ts` reject a proposal, whatever the prompt
 says: hard types (tempo, threshold, VO2max, hills, race-specific) while an
 injury has no end date, a date in the past, a rest day, or more minutes than
 that day allows (distance without a pace is timed at 6:00/km). Weekly volume and
-back-to-back hard days cannot be checked until there is training history.
+back-to-back hard days are checked by the schedule rules below.
 
 A proposal can name an earlier workout from the same chat that it revises. A
 revision of a workout still waiting for a decision replaces it at once, and
@@ -140,8 +140,8 @@ days from availability and race dates from goals and race history. Dates are
 `YYYY-MM-DD` strings with arithmetic in UTC (`src/lib/dates.ts`), and "today" is
 the server's local date. Moving a workout is checked by the same rules as a
 proposal and clears its done/skipped mark. A workout can be marked done or
-skipped once its day has come; until Garmin, that is the only record of what was
-run.
+skipped once its day has come; otherwise a Garmin run that day marks it done
+(see below).
 
 ## Plans are split into blocks by date
 
@@ -163,7 +163,7 @@ skipped: no hard sessions on consecutive days, at most three a week, each day
 within its available minutes, and a week's planned time at most 10% (or 30
 minutes) above the week before. The growth rule needs a baseline of 90 minutes
 in the previous week, so it does not apply to the first weeks of planning. These
-compare planned time: until Garmin, the app does not know what was really run.
+compare planned time, not what Garmin recorded.
 
 ## The coach proposes blocks and changes, never applies them
 
@@ -174,12 +174,32 @@ each workout's date at the time. Approving re-checks every change against the
 rules and refuses the set if any workout has moved since. A cancelled workout
 keeps its row with status "cancelled". The coach cannot create plans.
 
-## Analytics are planned versus done, for now
+## Analytics are planned versus done, and what was run
 
 `/analytics` shows eight weeks of approved workouts: planned and done time,
-done and skipped counts, and the share of planned time in hard sessions. All of
-it comes from the athlete's own marks and estimated minutes. Pace, heart rate
-and load wait for Garmin data.
+done and skipped counts, and the share of planned time in hard sessions, all
+estimated from workout steps. Beside it, and never added to it, is what Garmin
+recorded each week: runs, distance and time.
+
+## Garmin runs mark workouts done, without overwriting marks
+
+Each sync replaces the `activities` table with an allowlist of fields from
+Garmin's activity list (type, start, distance, time, elevation, heart rate,
+cadence, load, training effect, time in zones); names of people, photos and
+coordinates are not copied. Runs of every kind count here, treadmill included.
+
+Whether a workout was done is worked out when it is read, not stored
+(`src/lib/runs.ts`): the athlete's own mark wins; otherwise runs on the same day
+are paired with workouts, longest with longest, and a matched workout is done.
+Runs left over show as unplanned. So moving a workout, clearing a mark or
+deleting a run in Garmin needs no clean-up. A workout marked skipped takes no
+run. The calendar, analytics and the coach's `get_schedule` all use the same
+result. The coach gets each run's distance, time, heart rate and load, never its
+name or id.
+
+Garmin's training load is missing on most older runs, so the coach gets it per
+run where present and as a weekly total over those runs. Sync is still manual,
+from the Profile page or the Calendar.
 
 ## Claude Sonnet 5.5 through the Messages API
 

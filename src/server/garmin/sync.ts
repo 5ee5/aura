@@ -3,9 +3,9 @@
 import { and, eq } from "drizzle-orm";
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { addDays } from "../../lib/dates";
-import { garminSnapshots, personalBests } from "../db/schema";
-import type { GarminClient } from "./client";
-import { bestsFromActivities, heartRateFromZones, isOutdoorRun, latestVo2Max } from "./extract";
+import { activities as activitiesTable, garminSnapshots, personalBests } from "../db/schema";
+import { GarminError, type GarminClient } from "./client";
+import { activityFromGarmin, bestsFromActivities, heartRateFromZones, isOutdoorRun, latestVo2Max } from "./extract";
 
 const PAGE = 100;
 /** Enough for years of daily running; stops a runaway loop if Garmin keeps returning pages. */
@@ -14,6 +14,7 @@ const MAX_ACTIVITIES = 10_000;
 export interface SyncResult {
   runsRead: number;
   bests: number;
+  activities: number;
 }
 
 interface Options {
@@ -27,12 +28,13 @@ async function allActivities(client: GarminClient, pauseMs: number): Promise<unk
   const activities: unknown[] = [];
   for (let start = 0; start < MAX_ACTIVITIES; start += PAGE) {
     const page = await client.get(`/activitylist-service/activities/search/activities?start=${start}&limit=${PAGE}`);
-    if (!Array.isArray(page)) break;
+    // Stored activities are replaced by what arrives, so a short or odd answer must never pass as the end.
+    if (!Array.isArray(page)) throw new GarminError("unavailable", "Garmin sent an unexpected activity list. Nothing was changed.");
     activities.push(...page);
-    if (page.length < PAGE) break;
+    if (page.length < PAGE) return activities;
     if (pauseMs) await new Promise((resolve) => setTimeout(resolve, pauseMs));
   }
-  return activities;
+  throw new GarminError("unavailable", `More than ${MAX_ACTIVITIES} activities: not supported yet. Nothing was changed.`);
 }
 
 export async function syncGarmin(
@@ -46,6 +48,7 @@ export async function syncGarmin(
   const vo2 = latestVo2Max(await client.get(`/metrics-service/metrics/maxmet/daily/${addDays(today, -90)}/${today}`));
   const bests = bestsFromActivities(activities);
   const runsRead = activities.filter((a) => a && typeof a === "object" && isOutdoorRun(a as never)).length;
+  const rows = [...new Map(activities.map(activityFromGarmin).filter((a) => a !== undefined).map((a) => [a.garminId, a])).values()];
 
   await db.transaction(async (tx) => {
     // Only Garmin's own rows; bests the athlete typed in are never touched.
@@ -73,7 +76,10 @@ export async function syncGarmin(
     };
     await tx.delete(garminSnapshots);
     await tx.insert(garminSnapshots).values(snapshot);
+    // Replaced whole, so activities deleted in Garmin go here too.
+    await tx.delete(activitiesTable);
+    for (let i = 0; i < rows.length; i += 500) await tx.insert(activitiesTable).values(rows.slice(i, i + 500));
   });
 
-  return { runsRead, bests: bests.length };
+  return { runsRead, bests: bests.length, activities: rows.length };
 }

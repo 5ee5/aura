@@ -3,8 +3,9 @@ export const GET_SCHEDULE_TOOL = {
   name: "get_schedule",
   description:
     "Read the athlete's calendar between two dates (at most 8 weeks): approved workouts with " +
-    "their minutes and whether they were done or skipped, rest days, available minutes, race " +
-    "dates, training blocks and weekly totals. Call it before proposing a week or changes, " +
+    "their minutes and whether they were done or skipped, the runs Garmin recorded (distance, " +
+    "time, heart rate, load), rest days, available minutes, race dates, training blocks and " +
+    "weekly totals. Use past dates to see recent training. Call it before proposing a week or changes, " +
     "and when asked about the plan. Read only.",
   input_schema: {
     type: "object",

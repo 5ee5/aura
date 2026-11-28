@@ -101,3 +101,66 @@ export function latestVo2Max(response: unknown): { vo2Max: number; on: string } 
   }
   return latest;
 }
+
+/** Every kind of run, treadmill and indoor included: they count as training, not as bests. */
+export function isRunType(type: string): boolean {
+  return type === "running" || type.endsWith("_running") || type === "virtual_run";
+}
+
+export interface ActivityRow {
+  garminId: number;
+  type: string;
+  name: string | null;
+  startLocal: string;
+  on: string;
+  distanceMetres: number | null;
+  durationSeconds: number;
+  movingSeconds: number | null;
+  elevationGainMetres: number | null;
+  averageHeartRate: number | null;
+  maxHeartRate: number | null;
+  averageCadence: number | null;
+  trainingLoad: number | null;
+  aerobicEffect: number | null;
+  anaerobicEffect: number | null;
+  heartRateZoneSeconds: number[] | null;
+}
+
+const orNull = (value: unknown) => positive(value) ?? null;
+const notNegative = (value: unknown) => (typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null);
+
+/**
+ * The fields Aura keeps from one activity in Garmin's list, or undefined if it
+ * lacks an id, type, start or duration. Names of people, photos and coordinates
+ * are never copied.
+ */
+export function activityFromGarmin(item: unknown): ActivityRow | undefined {
+  const activity = record(item);
+  if (!activity) return undefined;
+  const garminId = positive(activity.activityId);
+  const type = record(activity.activityType)?.typeKey;
+  const start = activity.startTimeLocal;
+  const durationSeconds = positive(activity.duration);
+  if (!garminId || typeof type !== "string" || !durationSeconds) return undefined;
+  if (typeof start !== "string" || !/^\d{4}-\d\d-\d\d[ T]\d\d:\d\d:\d\d/.test(start)) return undefined;
+  const zones = [1, 2, 3, 4, 5].map((n) => notNegative(activity[`hrTimeInZone_${n}`]));
+  const name = typeof activity.activityName === "string" ? activity.activityName.slice(0, 200) : null;
+  return {
+    garminId,
+    type,
+    name,
+    startLocal: start.slice(0, 19).replace("T", " "),
+    on: start.slice(0, 10),
+    distanceMetres: orNull(activity.distance),
+    durationSeconds,
+    movingSeconds: orNull(activity.movingDuration),
+    elevationGainMetres: notNegative(activity.elevationGain),
+    averageHeartRate: bpm(activity.averageHR),
+    maxHeartRate: bpm(activity.maxHR),
+    averageCadence: orNull(activity.averageRunningCadenceInStepsPerMinute),
+    trainingLoad: notNegative(activity.activityTrainingLoad),
+    aerobicEffect: notNegative(activity.aerobicTrainingEffect),
+    anaerobicEffect: notNegative(activity.anaerobicTrainingEffect),
+    heartRateZoneSeconds: zones.every((z) => z !== null) ? (zones as number[]) : null,
+  };
+}
