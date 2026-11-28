@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { pushSoon } from "@/server/google/push";
 import { z } from "zod";
 import type { StatusChange } from "@/lib/workout";
 import { requireSession } from "@/server/auth/dal";
@@ -34,6 +35,7 @@ export async function decideWorkout(
   const changes = await decide(db, parsed.data.id, parsed.data.decision);
   if (!changes) return { error: "That workout no longer exists." };
   revalidatePath("/", "layout");
+  pushSoon();
   return { changes };
 }
 
@@ -59,5 +61,6 @@ export async function decideWeek(
   const changes: StatusChange[] = [];
   for (const workout of waiting) changes.push(...((await decide(db, workout.id, decision)) ?? []));
   revalidatePath("/", "layout");
+  pushSoon();
   return { changes };
 }

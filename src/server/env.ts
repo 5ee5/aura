@@ -14,6 +14,9 @@ const envSchema = z.object({
   ANTHROPIC_API_KEY: z.preprocess((value) => value || undefined, z.string().optional()),
   /** Garmin Connect Personal API key. Without one, Garmin sync is off. */
   GARMIN_API_KEY: z.preprocess((value) => value || undefined, z.string().optional()),
+  /** Google OAuth client from a Personal-mode Cloud project. Without both, Google Calendar is off. */
+  GOOGLE_CLIENT_ID: z.preprocess((value) => value || undefined, z.string().optional()),
+  GOOGLE_CLIENT_SECRET: z.preprocess((value) => value || undefined, z.string().optional()),
   /** "1" forces the mock even with a key, so tests can never spend money. */
   COACH_MOCK: z.string().optional(),
   COACH_DAILY_BUDGET_USD: z.preprocess(

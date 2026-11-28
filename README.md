@@ -11,7 +11,8 @@ workout can be edited step by step in the Studio, scheduled on the Calendar,
 and marked done or skipped. Plans split the season into blocks, and the coach can propose a whole week, a block, or changes to the calendar.
 With a Garmin key, a sync reads your runs and other sports, fastest efforts, heart rate, zones
 and VO2 max from Garmin Connect. A run on the day of a planned workout marks it
-done. There is no calendar connection.
+done. With Google Calendar connected, approved workouts appear in a calendar
+called Aura in your Google account.
 
 ## Requirements
 
@@ -97,6 +98,30 @@ outdoor runs (treadmill and indoor runs are left out), plus max, resting and
 threshold heart rate. These are the only personal bests Aura shows; there is
 no form to type them in. The coach reads them with your profile, so they go to Anthropic too.
 When the key expires, the sync says so: make a new one.
+
+## Google Calendar
+
+Aura writes your approved workouts to a calendar of its own, called **Aura**, in
+your Google account: one all-day event per workout, with its steps and a link
+back. Moving, editing or cancelling a workout updates the event a few seconds
+later; a workout done (marked, or matched to a Garmin run) gets a ✓. Events do
+not block time and have no reminders. Changes made to them in Google are
+overwritten. Aura cannot see or change your other calendars, and nothing from
+Google goes to Claude.
+
+1. Open https://console.cloud.google.com/auth/overview/personal, signed in as
+   the account whose Google Calendar you use, and create a **Personal** mode
+   client: web application, redirect URI `APP_URL/api/google/callback`.
+   Personal mode needs no verification and its access does not expire after 7
+   days; an ordinary External project in Testing blocks you or expires weekly.
+2. In that project, enable the Google Calendar API.
+3. Put the client in `.env` as `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`,
+   then `npm run deploy`.
+4. On the Profile page, press Connect Google Calendar.
+
+The stored Google access is encrypted with a key made from the client secret,
+so changing the secret means connecting again. Disconnect removes the access at
+Google; the Aura calendar stays in Google until you delete it there.
 
 ## Run on the server
 

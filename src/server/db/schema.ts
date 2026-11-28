@@ -400,3 +400,20 @@ export const activities = pgTable(
   },
   (t) => [index("activities_on").on(t.on)],
 );
+
+/** The one connected Google account. The refresh token is encrypted (see google/secret.ts). */
+export const googleAccounts = pgTable(
+  "google_accounts",
+  {
+    id: id(),
+    refreshToken: text("refresh_token_enc").notNull(),
+    /** Space-separated, as Google granted them: the athlete may untick some. */
+    scopes: text().notNull(),
+    connectedAt: timestamp("connected_at", { withTimezone: true }).notNull().defaultNow(),
+    /** Last time Aura's calendar was brought in line with the approved workouts. */
+    syncedAt: timestamp("synced_at", { withTimezone: true }),
+    /** The calendar Aura created and writes workouts to. */
+    auraCalendarId: text("aura_calendar_id"),
+  },
+  () => [uniqueIndex("google_accounts_only_one").on(sql`(true)`)],
+);

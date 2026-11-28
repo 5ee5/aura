@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { pushSoon } from "@/server/google/push";
 import { z } from "zod";
 import { isDate, localToday } from "@/lib/dates";
 import { requireSession } from "@/server/auth/dal";
@@ -35,6 +36,7 @@ export async function moveWorkout(id: number, date: string | null): Promise<{ er
   }
   await reschedule(getDb(), id, date);
   revalidatePath("/", "layout");
+  pushSoon();
   return {};
 }
 
@@ -49,5 +51,6 @@ export async function markWorkout(id: number, outcome: "done" | "skipped" | null
   }
   await setOutcome(getDb(), id, outcome);
   revalidatePath("/", "layout");
+  pushSoon();
   return {};
 }

@@ -204,12 +204,38 @@ training stress rather than running.
 Garmin's training load is missing on most older runs, so the coach gets it per
 run where present and as a weekly total over those runs.
 
+## Google Calendar: Aura writes its own calendar, and reads nothing
+
+Google's Personal mode limits a client to the account that created it, needs no
+verification, shows no unverified-app screen and is not subject to the 7-day
+refresh-token expiry of External apps in Testing (support.google.com/cloud/
+answer/15549945). A first External project was blocked as "being tested"; a
+Personal one worked on 2026-11-28.
+
+The only scope is `calendar.app.created`: Aura can make calendars and manage
+events on them, and cannot see or change any other calendar. Reading the
+athlete's events was built and then removed at their request, so no calendar
+data reaches Claude. The refresh token is stored AES-256-GCM encrypted, keyed
+from the client secret, so database dumps carry no usable token;
+`invalid_grant` means connect again and is not retried.
+
+Aura creates a calendar called Aura (recreated if deleted in Google) and keeps
+one all-day event per approved, dated workout from a month back to a year
+ahead, matched to its workout by a private extended property. Each update lists
+the calendar's events and works out what to create, change and delete
+(`src/server/google/calendar-sync.ts`); events Aura did not make, duplicates and
+events for workouts no longer approved are deleted, and edits made in Google
+are overwritten. Updates run a few seconds after any change to workouts,
+after a Garmin sync, every hour, and from Sync now; never two at once, and
+never in development or tests. The athlete's action never waits on Google: a
+failure shows on the Calendar and the next run retries.
+
 ## Garmin syncs on a timer inside the app
 
 `src/instrumentation.ts` starts a timer when the production server starts; no
 cron job or second service is needed, since one pm2 process serves the app. It
 checks every ten minutes and syncs when the local hour is 06 to 22 and the last
-attempt, failed or not, was two hours ago or more, so an expired key is tried
+attempt, failed or not, was two hours ago or more (the Aura calendar: one hour), so an expired key is tried
 again only at the next slot. The button and the timer share one runner and
 never sync at once. The last attempt is kept in memory and shown on the
 Calendar; after a restart the timer goes by the last successful sync in the

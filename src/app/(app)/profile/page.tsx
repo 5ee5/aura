@@ -10,6 +10,8 @@ import { getProfile } from "@/server/profile/data";
 import { getEnv } from "@/server/env";
 import { Entries } from "./entries";
 import { GarminSection } from "./garmin";
+import { GoogleSection } from "./google";
+import { getGoogleAccount, googleClient } from "@/server/google/account";
 import { Input, Row, Select, TextArea } from "@/components/form-fields";
 
 export const metadata: Metadata = { title: "Profile" };
@@ -18,9 +20,9 @@ const km = (metres: number | null | undefined) => (metres ? formatKilometres(met
 const time = (seconds: number | null | undefined) => (seconds ? formatDuration(seconds) : "");
 const joined = (...parts: (string | false | null | undefined)[]) => parts.filter(Boolean).join(", ");
 
-export default async function ProfilePage() {
+export default async function ProfilePage({ searchParams }: PageProps<"/profile">) {
   await requireSession();
-  const profile = await getProfile();
+  const [profile, google, params] = await Promise.all([getProfile(), getGoogleAccount(), searchParams]);
   const athlete = profile?.athlete;
   const garminConnected = Boolean(getEnv().GARMIN_API_KEY);
 
@@ -136,6 +138,12 @@ export default async function ProfilePage() {
           />
 
           <GarminSection garmin={profile.garmin} connected={garminConnected} />
+
+          <GoogleSection
+            setUp={Boolean(googleClient())}
+            account={google}
+            result={typeof params.google === "string" ? params.google : undefined}
+          />
 
           <Entries
             title="Race history"

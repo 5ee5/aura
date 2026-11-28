@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { pushSoon } from "@/server/google/push";
 import { z } from "zod";
 import { localToday } from "@/lib/dates";
 import { type Draft, draftToInput } from "@/lib/workout-editor";
@@ -62,5 +63,6 @@ export async function saveWorkout(
   if (approve && status === "proposed") status = (await decide(db, id, "approved"))?.[0]?.status ?? status;
   // Chats show the cards too; this also clears the browser's stored copies.
   revalidatePath("/", "layout");
+  pushSoon();
   return { status };
 }

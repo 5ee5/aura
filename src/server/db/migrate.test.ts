@@ -30,6 +30,7 @@ describe("migrations", () => {
       "coach_usage",
       "garmin_snapshots",
       "goals",
+      "google_accounts",
       "injuries",
       "personal_bests",
       "planned_workouts",

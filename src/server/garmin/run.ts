@@ -5,6 +5,7 @@ import { getDb } from "@/server/db/client";
 import { getEnv } from "@/server/env";
 import { getAthlete } from "@/server/profile/data";
 import { createGarminClient, GarminError } from "./client";
+import { pushSoon } from "@/server/google/push";
 import { syncGarmin, type SyncResult } from "./sync";
 
 /** What the last attempt did, kept in memory: there is one server process. */
@@ -31,6 +32,8 @@ export async function runGarminSync(how: SyncStatus["how"]): Promise<{ result?: 
     const result = await syncGarmin(getDb(), createGarminClient({ apiKey }), athlete.id, { today: localToday() });
     state.garminLastAttempt = { at: new Date(), how };
     revalidatePath("/", "layout");
+    // New runs can mark workouts done, which shows in the Aura calendar.
+    pushSoon();
     return { result };
   } catch (error) {
     const message = error instanceof GarminError ? error.message : "The sync failed. Nothing was changed.";

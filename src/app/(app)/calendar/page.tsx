@@ -5,12 +5,14 @@ import { addDays, addMonths, daysBetween, formatDate, isDate, localToday, monthW
 import { BLOCK_FOCUSES } from "@/lib/plans";
 import { activityLabel, describeRun, type Activity } from "@/lib/runs";
 import { isRunType } from "@/server/garmin/extract";
-import { GarminSync } from "@/components/garmin-sync";
+import { SyncBar, type SourceStatus } from "@/components/garmin-sync";
+import { getGoogleAccount } from "@/server/google/account";
+import { lastGooglePush } from "@/server/google/push";
 import { lastGarminSync } from "@/server/activities/store";
 import { requireSession } from "@/server/auth/dal";
 import { getDb } from "@/server/db/client";
 import { getEnv } from "@/server/env";
-import { autoSyncEnabled } from "@/server/garmin/auto-sync";
+import { autoSyncEnabled, googleAutoSyncEnabled } from "@/server/garmin/auto-sync";
 import { lastAttempt } from "@/server/garmin/run";
 import { calendarDays, type Day } from "@/server/calendar/data";
 import { CalendarEntry } from "./entry";
@@ -162,7 +164,22 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
   const weeks = view === "month" ? monthWeeks(anchor) : [startOfWeek(anchor)];
   const from = weeks[0]!;
   const to = addDays(weeks.at(-1)!, 6);
-  const [{ days, unscheduled, blocks }, lastSync] = await Promise.all([calendarDays(from, to), lastGarminSync(getDb())]);
+  const [{ days, unscheduled, blocks }, lastSync, google] = await Promise.all([
+    calendarDays(from, to),
+    lastGarminSync(getDb()),
+    getGoogleAccount(),
+  ]);
+  const sources: SourceStatus[] = [];
+  if (getEnv().GARMIN_API_KEY)
+    sources.push({ name: "Garmin", verb: "synced", lastSync, every: autoSyncEnabled() ? "Syncs every 2 hours, 06:00–23:00." : undefined, error: lastAttempt()?.error });
+  if (google)
+    sources.push({
+      name: "Aura calendar in Google",
+      verb: "updated",
+      lastSync: google.syncedAt,
+      every: googleAutoSyncEnabled() ? "Updated after every change." : undefined,
+      error: lastGooglePush()?.error,
+    });
   const previous = view === "month" ? addMonths(anchor, -1) : addDays(from, -7);
   const next = view === "month" ? addMonths(anchor, 1) : addDays(from, 7);
   const title =
@@ -211,7 +228,7 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
         </div>
       </nav>
 
-      {getEnv().GARMIN_API_KEY && <GarminSync lastSync={lastSync} auto={autoSyncEnabled()} error={lastAttempt()?.error} />}
+      <SyncBar sources={sources} />
 
       {blocks.length > 0 && (
         <ul aria-label="Training blocks" className="mt-3 flex flex-col gap-1">

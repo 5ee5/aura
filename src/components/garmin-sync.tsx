@@ -1,27 +1,33 @@
 import { ActionForm } from "@/components/action-form";
-import { syncFromGarmin } from "@/server/garmin/actions";
+import { syncEverything } from "@/server/garmin/actions";
 
-interface Props {
-  lastSync: Date | undefined;
-  auto: boolean;
-  /** The last attempt's error, if it failed. */
+export interface SourceStatus {
+  name: string;
+  /** "synced" or "updated". */
+  verb: string;
+  lastSync: Date | undefined | null;
+  /** When it happens by itself, as a sentence; undefined when only the button does it. */
+  every?: string;
   error?: string;
 }
 
 const when = (date: Date) => date.toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" });
 
-/** Last sync time and a sync button; shown only when a Garmin key is set. */
-export function GarminSync({ lastSync, auto, error }: Props) {
+/** When each connected source last synced, and one button for both. */
+export function SyncBar({ sources }: { sources: SourceStatus[] }) {
+  if (sources.length === 0) return null;
   return (
     <div className="mt-3 flex flex-wrap items-center gap-x-3 rounded-lg border border-line px-3 py-2 text-sm">
       <div className="text-muted">
-        <p>
-          {lastSync ? `Garmin synced ${when(lastSync)}.` : "Garmin not synced yet."}{" "}
-          {auto ? "Syncs every 2 hours from 06:00 to 23:00." : "Sync is manual here."}
-        </p>
-        {error && <p className="text-danger">Last sync failed: {error}</p>}
+        {sources.map((s) => (
+          <p key={s.name}>
+            {s.lastSync ? `${s.name} ${s.verb} ${when(s.lastSync)}.` : `${s.name} not ${s.verb} yet.`}
+            {s.every && ` ${s.every}`}
+            {s.error && <span className="block text-danger">{s.name}: {s.error}</span>}
+          </p>
+        ))}
       </div>
-      <ActionForm action={syncFromGarmin} submitLabel="Sync now">
+      <ActionForm action={syncEverything} submitLabel="Sync now">
         {null}
       </ActionForm>
     </div>

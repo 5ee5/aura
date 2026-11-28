@@ -19,4 +19,6 @@ export const E2E_ENV = {
   ANTHROPIC_API_KEY: "",
   // Never call Garmin from tests either.
   GARMIN_API_KEY: "",
+  GOOGLE_CLIENT_ID: "",
+  GOOGLE_CLIENT_SECRET: "",
 };

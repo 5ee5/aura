@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { pushSoon } from "@/server/google/push";
 import { z } from "zod";
 import { localToday } from "@/lib/dates";
 import { requireSession } from "@/server/auth/dal";
@@ -21,6 +22,7 @@ export async function decideBlockProposal(id: number, decision: "approved" | "de
   if (!parsed.success) return { error: "That block no longer exists." };
   const result = await decideBlock(getDb(), parsed.data.id, parsed.data.decision);
   revalidatePath("/", "layout");
+  pushSoon();
   return result;
 }
 
@@ -31,5 +33,6 @@ export async function decideChangeSet(id: number, decision: "approved" | "declin
   const limits = limitsFrom(await getProfile());
   const result = await decideChanges(getDb(), parsed.data.id, parsed.data.decision, limits, localToday());
   revalidatePath("/", "layout");
+  pushSoon();
   return result;
 }
