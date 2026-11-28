@@ -30,8 +30,8 @@ is told to prefer the athlete's own bests.
 Garmin bests are stored with source "measured" and are read-only: each sync
 replaces them, after everything has been fetched, in one transaction. They are
 the only bests shown or sent to the coach; the form for typing bests in was
-removed, and rows typed in before then stay in the table, unused. Race results
-are still typed in. One snapshot row holds heart rate, zones and
+removed and the typed-in rows deleted on 2026-11-28. Race results are still
+typed in. One snapshot row holds heart rate, zones and
 VO2 max. Sync is manual for now; sleep, HRV and daily data wait for recovery
 analysis.
 
